@@ -46,10 +46,10 @@ struct zermelo_boat <: system
     nx::Integer;
     nu::Integer;
     flow_strength::Float64;
-    upper_bounds_x::Vector{Float64};
-    upper_bounds_u::Vector{Float64};
-    lower_bounds_x::Vector{Float64};
-    lower_bounds_u::Vector{Float64};
+    xmax::Vector{Float64};
+    umax::Vector{Float64};
+    xmin::Vector{Float64};
+    umin::Vector{Float64};
 end
 
 function flow(sys::zermelo_boat,x::Vector{Float64})
@@ -76,12 +76,17 @@ function heuristic_control(sys::zermelo_boat,t::Float64,x::Vector{Float64},g::Ve
     @assert abs(norm(u)-1)<1e-6;
     return u
 end
+
+function random_control(sys::zermelo_boat,t::Float64,x::Vector{Float64})
+    angle = Random.rand() * 2* pi;
+    return [cos(angle),sin(angle)]
+end
 ################################################ toy_boat test case  ###############################################################
 struct toy_boat <: system
     nx::Integer
     nu::Integer
-    upper_bounds_x::Vector{Float64}
-    upper_bounds_u::Vector{Float64}
-    lower_bounds_x::Vector{Float64};
-    lower_bounds_u::Vector{Float64};
+    xmax::Vector{Float64};
+    umax::Vector{Float64};
+    xmin::Vector{Float64};
+    umin::Vector{Float64};
 end

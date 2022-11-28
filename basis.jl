@@ -4,7 +4,7 @@ using DynamicPolynomials
 
 ################################################ Begin Basis parameterization ###############################################################
 n = 1+nx;
-degree = 6;
+degree = 7;
 @polyvar xvar[1:n]
 basis = monomials(xvar, 0:degree)
 ϕ(y::AbstractArray) = [p(xvar=>y) for p in basis];
