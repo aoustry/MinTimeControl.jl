@@ -33,8 +33,6 @@ end
 #    return @constraint(model,θ'*mat*θ<=1e-3);
 #end
 
-
-
 function add_terminal_gradient_constraint(model, θ,sys::system, t::Float64, xT::Vector{Float64})
     ∇ = ∇ϕ(vcat(t,xT));
     return @constraint(model,(∇'*θ)[2:1+sys.nx] .==0);
@@ -53,8 +51,7 @@ function add_terminal_constraints(model, θ,xT::Vector{Float64},tmax::Float64,P:
 end
 
 function add_terminal_sdp_constraints_random(model, θ,xT::Vector{Float64},tmax::Float64,P::Int64,constraints::Vector{Any})
-    step = tmax/P;
-    for t in 0:step:tmax
+    for t in tmax*0.5:tmax/(2*P):tmax
         for k in 1:10
             g = random_control(sys,t,xT);
             append!(constraints, [add_terminal_sdp_constraint(model,θ, t,xT,g)]); 
