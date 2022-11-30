@@ -50,9 +50,9 @@ function add_terminal_constraints(model, θ,xT::Vector{Float64},tmax::Float64,P:
     end
 end
 
-function add_terminal_sdp_constraints_random(model, θ,xT::Vector{Float64},tmax::Float64,P::Int64,constraints::Vector{Any})
+function add_terminal_sdp_constraints(model, θ,xT::Vector{Float64},tmax::Float64,P::Int64,constraints::Vector{Any})
     for t in tmax*0.5:tmax/(2*P):tmax
-        for k in 1:10
+        for k in 1:20
             g = random_control(sys,t,xT);
             append!(constraints, [add_terminal_sdp_constraint(model,θ, t,xT,g)]); 
         end
@@ -63,6 +63,19 @@ function add_terminal_gradient_constraints(model, θ,sys::system,xT::Vector{Floa
     for t in tmax*0.5:tmax/(2*P):tmax
         append!(constraints, [add_terminal_gradient_constraint(model,θ,sys,t,xT)];)
     end
+end
+
+function add_hamiltonian_constraints_on_trajectory(model, θ, sys::system, traj::Vector{Any},step::Int64,constraints::Vector{Any},λ::Vector{Float64})
+    added = 0
+    for aux in 1:step:length(traj)
+            vector = traj[aux]; 
+            t,x,u = vector[1],vector[2:nx+1],vector[nx+2:nx+nu+1];
+            if H(sys,t,x,u,λ)<-1
+                added+=1;
+                append!(constraints, [add_hamiltonian_constraint(model,θ, sys,t,x,u)]);
+            end
+    end
+    print("Added cuts along trajectory = ",added);
 end
 
 function add_hamiltonian_constraints_on_trajectory(model, θ, sys::system, traj::Vector{Any},step::Int64,constraints::Vector{Any})
@@ -83,6 +96,30 @@ end
 ############################################################################################################
 
 
+########################################## Random search function ##########################################
+function add_random_selected_cuts(model, θ, sys::system,tmax::Float64,P::Int64,constraints::Vector{Any},λ::Vector{Float64})
+    success = attempts = 0 ; 
+    max_violation = 0;
+    while success<P
+        attempts+=1
+         t = Random.rand()*tmax;
+         x = ((sys.xmax.-sys.xmin) .* [Random.rand() for j in 1:nx]) .+ sys.xmin;
+         hmin,u = Hmin(sys,vcat(t,x),λ) ; 
+         value = hmin + 1;
+         if value < 0
+            max_violation = min(max_violation,value);
+            append!(constraints, [add_hamiltonian_constraint(model,θ, sys,t,x,u)]);
+            success+=1;
+         end
+    end
+    println("Number of attempts = ",attempts);
+    println("Violation = ",max_violation);
+
+ end
+ 
+
+    
+    
 
 
 #ToBeDeleted:

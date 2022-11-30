@@ -5,6 +5,19 @@ TARGET_TOLERANCE = 1e-2;
 
 abstract type system end
 
+
+function H(sys::system,t::Float64,x::Vector{Float64},u::Vector{Float64},λ::Vector{Float64})
+    ∇ = ∇v(vcat(t,x),λ);
+    return  ∇' *vcat(1,f(sys,t,x,u));
+end
+
+function Hmin(sys::system,y::Vector{Float64},λ::Vector{Float64})
+    ∇ = ∇v(y,λ);
+    u = argmin(sys,y[1],y[2:end],∇[2:end]);
+    return  ∇' *vcat(1,f(sys,y[1],y[2:end],u)),u;
+end
+
+
 function heuristic_trajectory(sys::system,x0::Vector{Float64},xT::Vector{Float64},Tmax::Float64)
     t = 0.0;
     x = copy(x0);
@@ -81,6 +94,8 @@ function random_control(sys::zermelo_boat,t::Float64,x::Vector{Float64})
     angle = Random.rand() * 2* pi;
     return [cos(angle),sin(angle)]
 end
+
+
 ################################################ toy_boat test case  ###############################################################
 struct toy_boat <: system
     nx::Integer
