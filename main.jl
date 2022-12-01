@@ -29,7 +29,7 @@ add_hamiltonian_constraints_on_trajectory(model, θ, sys, traj_heur,1,constraint
 add_hamiltonian_constraints_random(model, θ, sys,tmax,1000,constraints);
 add_terminal_constraints(model, θ,xT,tmax,1000,constraints);
 add_terminal_gradient_constraints(model, θ,sys,xT,tmax,1000,constraints);
-add_terminal_sdp_constraints(model, θ,xT,tmax,200,constraints);
+#add_terminal_sdp_constraints(model, θ,xT,tmax,200,constraints);
 
 set_objective(model,θ,x0,1e-4);
 λ = 0.0;
