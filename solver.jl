@@ -9,6 +9,24 @@ function set_objective(model,θ,x0::Vector{Float64},ρ::Float64)
         @objective(model, Max, sum(a[i]*θ[i] for i in 1:N));
     end
 end
+
+function set_objective_with_integral(model,θ,x0::Vector{Float64},ρ::Float64,tmax::Float64)
+    a = ϕ(vcat(0,x0));
+    P = 10000;
+    moments = zeros(N);
+
+    for aux in 1:P
+        t = Random.rand()*tmax;
+        x = ((sys.xmax.-sys.xmin) .* [Random.rand() for j in 1:nx]) .+ sys.xmin
+        moments = moments .+ ϕ(vcat(t,x))/P;
+    end
+
+    if ρ>0
+        @objective(model, Max, sum(a[i]*θ[i] for i in 1:N) + 0.005*sum(moments[i]*θ[i] for i in 1:N)  - ρ*sum(θ[i]*θ[i] for i in 1:N));
+    else
+        @objective(model, Max, sum(a[i]*θ[i] for i in 1:N) + 0.005*sum(moments[i]*θ[i] for i in 1:N));
+    end
+end
 ############################################################################################################
 
 ########################################## Individual constraints ##########################################
@@ -97,7 +115,7 @@ end
 
 
 ########################################## Random search function ##########################################
-function add_random_selected_cuts(model, θ, sys::system,tmax::Float64,P::Int64,constraints::Vector{Any},λ::Vector{Float64})
+function add_selected_cuts(model, θ, sys::system,tmax::Float64,P::Int64,constraints::Vector{Any},λ::Vector{Float64})
     success = attempts = 0 ; 
     max_violation = 0;
     while success<P
@@ -114,7 +132,7 @@ function add_random_selected_cuts(model, θ, sys::system,tmax::Float64,P::Int64,
     end
     println("Number of attempts = ",attempts);
     println("Violation = ",max_violation);
-
+    return max_violation
  end
  
 
