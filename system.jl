@@ -1,4 +1,5 @@
 using LinearAlgebra
+using Optim
 
 dt = 1e-4;
 TARGET_TOLERANCE = 1e-2;
@@ -52,8 +53,6 @@ function vmin_trajectory(sys::system,x0::Vector{Float64},xT::Vector{Float64},Tma
     return trajectory, t
 end
 
-#ToBeDeleted: ci-dessus: question de l'écart à -1 et de l'instantiation.
-
 ################################################ Zermelo test case  ###############################################################
 struct zermelo_boat <: system
     nx::Integer;
@@ -100,8 +99,53 @@ end
 struct toy_boat <: system
     nx::Integer
     nu::Integer
+    polar_coef::Float64;
     xmax::Vector{Float64};
     umax::Vector{Float64};
     xmin::Vector{Float64};
     umin::Vector{Float64};
+end
+
+function wind_speed(sys::toy_boat,t::Float64,x::Vector{Float64})
+    return 2.0
+end
+
+function wind_angle(sys::toy_boat,t::Float64,x::Vector{Float64})
+    return 0.5*pi*(1-0.5*t)
+end
+
+function polar(sys::toy_boat,rel_angle::Float64)
+    return abs(sin(sys.polar_coef*rel_angle))
+end
+
+#function aux(sys::toy_boat,g::Vector{Float64},winddir::Float64,theta::Float64)
+#   diff_mod = (theta-winddir  + pi)%(2*pi) - pi
+#    return (g[1]*cos(theta)+g[2]*sin(theta))*polar(sys,diff_mod)
+#end
+
+function f(sys::toy_boat,t::Float64,x::Vector{Float64},u::Vector{Float64})
+    @assert abs(norm(u)-1)<1e-6;
+    heading = angle(u[1] + im*u[2]);
+    relative_angle = wind_angle(sys,t,x) - heading;
+    relative_angle = (relative_angle + pi)%(2*pi) - pi;
+    r = wind_speed(sys,t,x)*polar(sys,relative_angle);
+    return r*u;
+end
+
+function argmin(sys::toy_boat,t::Float64,x::Vector{Float64},g::Vector{Float64})
+    windir = wind_angle(sys,t,x)
+    x0 = 0;
+    res = optimize(theta -> f(sys,t,x,[cos(theta),sin(theta)])'*g, -2*pi, 2*pi,Brent());
+    θ = Optim.minimizer(res)[1];
+    return [cos(θ),sin(θ)]
+end
+    
+
+function heuristic_control(sys::toy_boat,t::Float64,x::Vector{Float64},g::Vector{Float64})
+    return g/norm(g)
+end
+
+function random_control(sys::toy_boat,t::Float64,x::Vector{Float64})
+    angle = Random.rand() * 2* pi;
+    return [cos(angle),sin(angle)]
 end
