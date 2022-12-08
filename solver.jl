@@ -93,7 +93,7 @@ function add_hamiltonian_constraints_on_trajectory(model, θ, sys::system, traj:
                 append!(constraints, [add_hamiltonian_constraint(model,θ, sys,t,x,u)]);
             end
     end
-    print("Added cuts along trajectory = ",added);
+    println("Added cuts along trajectory = ",added);
 end
 
 function add_hamiltonian_constraints_on_trajectory(model, θ, sys::system, traj::Vector{Any},constraints::Vector{Any})
