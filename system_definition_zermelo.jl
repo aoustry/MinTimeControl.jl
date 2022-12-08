@@ -6,5 +6,5 @@ xm,um,xM,uM = -1.0,-1.0,1.0,1.0
 Tmax = 10.0;
 x0 = [0,-0.7];
 xT = [0,0.7]
-sys = zermelo_boat(nx,nu,param,xM*ones(2),uM*ones(2),xm*ones(2),um*ones(2));
+sys = zermelo_boat(name_system,nx,nu,param,xM*ones(2),uM*ones(2),xm*ones(2),um*ones(2));
 ##################################################################################################################

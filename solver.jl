@@ -83,9 +83,9 @@ function add_terminal_gradient_constraints(model, θ,sys::system,xT::Vector{Floa
     end
 end
 
-function add_hamiltonian_constraints_on_trajectory(model, θ, sys::system, traj::Vector{Any},step::Int64,constraints::Vector{Any},λ::Vector{Float64})
+function add_hamiltonian_constraints_on_trajectory(model, θ, sys::system, traj::Vector{Any},constraints::Vector{Any},λ::Vector{Float64})
     added = 0
-    for aux in 1:step:length(traj)
+    for aux in 1:length(traj)
             vector = traj[aux]; 
             t,x,u = vector[1],vector[2:nx+1],vector[nx+2:nx+nu+1];
             if H(sys,t,x,u,λ)<-1
@@ -96,8 +96,8 @@ function add_hamiltonian_constraints_on_trajectory(model, θ, sys::system, traj:
     print("Added cuts along trajectory = ",added);
 end
 
-function add_hamiltonian_constraints_on_trajectory(model, θ, sys::system, traj::Vector{Any},step::Int64,constraints::Vector{Any})
-    for aux in 1:step:length(traj)
+function add_hamiltonian_constraints_on_trajectory(model, θ, sys::system, traj::Vector{Any},constraints::Vector{Any})
+    for aux in 1:length(traj)
             vector = traj[aux]; 
             append!(constraints, [add_hamiltonian_constraint(model,θ, sys,vector[1],vector[2:nx+1],vector[nx+2:nx+nu+1])]);
     end

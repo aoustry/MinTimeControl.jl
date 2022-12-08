@@ -55,6 +55,7 @@ end
 
 ################################################ Zermelo test case  ###############################################################
 struct zermelo_boat <: system
+    name::String
     nx::Integer;
     nu::Integer;
     flow_strength::Float64;
@@ -97,6 +98,7 @@ end
 
 ################################################ toy_boat test case  ###############################################################
 struct toy_boat <: system
+    name::String
     nx::Integer
     nu::Integer
     polar_coef::Float64;
@@ -107,7 +109,7 @@ struct toy_boat <: system
 end
 
 function wind_speed(sys::toy_boat,t::Float64,x::Vector{Float64})
-    return 2.0
+    return 2.5
 end
 
 function wind_angle(sys::toy_boat,t::Float64,x::Vector{Float64})
@@ -118,10 +120,6 @@ function polar(sys::toy_boat,rel_angle::Float64)
     return abs(sin(sys.polar_coef*rel_angle))
 end
 
-#function aux(sys::toy_boat,g::Vector{Float64},winddir::Float64,theta::Float64)
-#   diff_mod = (theta-winddir  + pi)%(2*pi) - pi
-#    return (g[1]*cos(theta)+g[2]*sin(theta))*polar(sys,diff_mod)
-#end
 
 function f(sys::toy_boat,t::Float64,x::Vector{Float64},u::Vector{Float64})
     @assert abs(norm(u)-1)<1e-6;
@@ -133,8 +131,6 @@ function f(sys::toy_boat,t::Float64,x::Vector{Float64},u::Vector{Float64})
 end
 
 function argmin(sys::toy_boat,t::Float64,x::Vector{Float64},g::Vector{Float64})
-    windir = wind_angle(sys,t,x)
-    x0 = 0;
     res = optimize(theta -> f(sys,t,x,[cos(theta),sin(theta)])'*g, -2*pi, 2*pi,Brent());
     θ = Optim.minimizer(res)[1];
     return [cos(θ),sin(θ)]
@@ -148,4 +144,22 @@ end
 function random_control(sys::toy_boat,t::Float64,x::Vector{Float64})
     angle = Random.rand() * 2* pi;
     return [cos(angle),sin(angle)]
+end
+
+function plot_test(sys::system,t::Float64)
+    θ = -pi:0.01:pi;
+    Y1 = [f(sys,t,[0.0,0.0],[cos(a),sin(a)])[1] for a in θ]
+    Y2 = [f(sys,t,[0.0,0.0],[cos(a),sin(a)])[2] for a in θ]
+    plot(Y1,Y2,aspect_ratio = 1);
+    png("tests/"*sys.name*string(t)*".png")
+end
+
+function plot_test_direction(sys::system,t::Float64,g ::Vector{Float64})
+    θ = -pi:0.01:pi;
+    Y1 = [f(sys,t,[0.0,0.0],[cos(a),sin(a)])[1] for a in θ]
+    Y2 = [f(sys,t,[0.0,0.0],[cos(a),sin(a)])[2] for a in θ]
+    u = argmin(sys,t,[0.0,0.0],g)
+    plot(Y1,Y2,aspect_ratio = 1);
+    plot!([0.0,u[1]],[0.0,u[2]],aspect_ratio = 1)
+    png("tests/"*sys.name*string(t)*".png")
 end
