@@ -50,7 +50,7 @@ function plot_hmin(sys::system,λ::Vector{Float64},ub_t::Float64)
         for x in a
             for y in b
                 h,u = Hmin(sys,[t,x,y],λ)
-                if h < -0.95
+                if h < -0.999
                     append!(resx,x)
                     append!(resy,y)
                 end

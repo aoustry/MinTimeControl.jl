@@ -21,7 +21,7 @@ function set_objective_with_integral(model,θ,x0::Vector{Float64},ρ::Float64,tm
         moments = moments .+ ϕ(vcat(t,x))/P;
     end
 
-    if ρ>0
+    if ρ>0.0
         @objective(model, Max, sum(a[i]*θ[i] for i in 1:N) + 0.005*sum(moments[i]*θ[i] for i in 1:N)  - ρ*sum(θ[i]*θ[i] for i in 1:N));
     else
         @objective(model, Max, sum(a[i]*θ[i] for i in 1:N) + 0.005*sum(moments[i]*θ[i] for i in 1:N));
@@ -37,7 +37,11 @@ end
 
 function add_terminal_constraint(model, θ, t::Float64, xT::Vector{Float64})
     a = ϕ(vcat(t,xT));
-    return @constraint(model,sum(a[i]*θ[i] for i in 1:N)<=0);
+    if TERMINAL_CONSTRAINT_EQ
+        return @constraint(model,sum(a[i]*θ[i] for i in 1:N)==0);
+    else
+        return @constraint(model,sum(a[i]*θ[i] for i in 1:N)<=0);
+    end
 end
 
 function add_terminal_sdp_constraint(model, θ, t::Float64, xT::Vector{Float64},g::Vector{Float64})
@@ -96,6 +100,7 @@ function add_hamiltonian_constraints_on_trajectory(model, θ, sys::system, traj:
     println("Added cuts along trajectory = ",added);
 end
 
+
 function add_hamiltonian_constraints_on_trajectory(model, θ, sys::system, traj::Vector{Any},constraints::Vector{Any})
     for aux in 1:length(traj)
             vector = traj[aux]; 
@@ -140,6 +145,44 @@ function add_selected_cuts(model, θ, sys::system,tmax::Float64,P::Int64,constra
     
 
 
-#ToBeDeleted:
-#delete a constraint
-#delete(model,constraint_by_name(model,"name"))
+##################################################### Main function ###########################################################
+function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ)
+    best_traj = traj_heur
+    model = Model(Gurobi.Optimizer);
+    set_optimizer_attribute(model, "Method", 1)
+    @variable(model, θ[1:N]);
+    constraints = [];
+    add_hamiltonian_constraints_on_trajectory(model, θ, sys, traj_heur,constraints);
+    add_hamiltonian_constraints_random(model, θ, sys,tmax,N_RANDOM_INIT,constraints);
+    add_terminal_constraints(model, θ,xT,tmax,N_TERMINAL,constraints);
+    add_terminal_gradient_constraints(model, θ,sys,xT,tmax,N_TERMINAL,constraints);
+    #add_terminal_sdp_constraints(model, θ,xT,tmax,200,constraints);
+
+    set_objective(model,θ,x0,μ);
+    λ = 0.0;
+    max_violation = -Inf;
+    while max_violation < -ϵ
+        optimize!(model);
+        λ = [value(θ[i]) for i in 1:N];
+        traj,tmax_new = vmin_trajectory(sys,x0,xT,tmax,λ)
+        if tmax_new < tmax
+            tmax = tmax_new
+            best_traj = traj
+        end
+        println("Time best feasible control = ",tmax);
+        println("Value v(0,x0) = ",v(vcat(0.0,x0),λ));
+        add_hamiltonian_constraints_on_trajectory(model, θ, sys, traj,constraints,λ);
+        max_violation = add_selected_cuts(model, θ, sys,tmax,N_SELECTED_CONSTRAINTS,constraints,λ)
+    end
+
+    optimize!(model);
+    λ = [value(θ[i]) for i in 1:N];
+    traj,tmax_new = vmin_trajectory(sys,x0,xT,tmax,λ)
+    if tmax_new < tmax
+        tmax = tmax_new
+        best_traj = traj
+    end
+    println("Time feasible control = ",tmax)
+    println("Value v(0,x0) = ",v(vcat(0.0,x0),λ));
+    return best_traj, tmax,λ
+end

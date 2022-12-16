@@ -113,7 +113,7 @@ function wind_speed(sys::toy_boat,t::Float64,x::Vector{Float64})
 end
 
 function wind_angle(sys::toy_boat,t::Float64,x::Vector{Float64})
-    return 0.5*pi*(1-0.5*t)
+    return 0.5*pi*(1-0.6*t)
 end
 
 function polar(sys::toy_boat,rel_angle::Float64)

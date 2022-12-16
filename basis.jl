@@ -4,13 +4,19 @@ using DynamicPolynomials
 
 ################################################ Begin Basis parameterization ###############################################################
 n = 1+nx;
-degree = 8;
+degree = 5;
 @polyvar xvar[1:n]
 basis = monomials(xvar, 0:degree)
-ϕ(y::AbstractArray) = [p(xvar=>y) for p in basis];
+#Polynomial basis
+#ϕ(y::AbstractArray) = [p(xvar=>y) for p in basis];
+#N = length(basis)
+#Trigo basis
+#ϕ(y::AbstractArray) = [ prod([cos(y[k]*(p.z[k]//2) + (p.z[k]%2) * pi/2) for k in 1:n]) for p in basis]
+#N = length(basis)
+#Combining?
+N = 2*length(basis)
+ϕ(y::AbstractArray) = vcat([p(xvar=>y) for p in basis], [ prod([cos(y[k]*(p.z[k]//2) + (p.z[k]%2) * pi/2) for k in 1:n]) for p in basis]);
 ################################################ End Basis parameterization ###############################################################
-
-N = length(basis)
 ∇ϕ(y::AbstractArray) = ForwardDiff.jacobian(ϕ,y);   
 ∇²ϕ(y::AbstractArray) = ForwardDiff.jacobian(x -> ∇ϕ(x),y);
 g∇²ϕg(y::AbstractArray,g::Array) = ForwardDiff.derivative(t->∇ϕ(y+t*g)*g,0);
