@@ -4,7 +4,7 @@ name_system = "toyboat"*string(polar_coef)
 nx, nu = 2,2;
 xm,um,xM,uM = -1.0,-1.0,1.0,1.0
 Tmax = 10.0;
-x0 = [0,-0.5];
+x0 = [0,-0.6];
 xT = [0,0.5]
 sys = toy_boat(name_system,nx,nu,polar_coef,xM*ones(2),uM*ones(2),xm*ones(2),um*ones(2));
 ##################################################################################################################

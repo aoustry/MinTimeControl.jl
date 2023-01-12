@@ -1,5 +1,6 @@
 using JuMP
 
+
 ############################################# Objective ####################################################
 function set_objective(model,θ,x0::Vector{Float64},ρ::Float64)
     a = ϕ(vcat(0,x0));
@@ -89,7 +90,7 @@ end
 
 function add_hamiltonian_constraints_on_trajectory(model, θ, sys::system, traj::Vector{Any},constraints::Vector{Any},λ::Vector{Float64})
     added = 0
-    for aux in 1:length(traj)
+    for aux in 1:STEP_ADD_TRAJ:length(traj)
             vector = traj[aux]; 
             t,x,u = vector[1],vector[2:nx+1],vector[nx+2:nx+nu+1];
             if H(sys,t,x,u,λ)<-1
@@ -111,10 +112,19 @@ end
 function add_hamiltonian_constraints_random(model, θ, sys::system,tmax::Float64,P::Int64,constraints::Vector{Any})
    for aux in 1:P
         t = Random.rand()*tmax;
-        x = ((sys.xmax.-sys.xmin) .* [Random.rand() for j in 1:nx]) .+ sys.xmin;
+        x = ((sys.xmax.-sys.xmin) .* [Random.rand() for j in 1:sys.nx]) .+ sys.xmin;
         u = random_control(sys,t,x);
         append!(constraints, [add_hamiltonian_constraint(model,θ, sys,t,x,u)]);
    end
+end
+
+function random_vector_unit_ball(p::Int64)
+    while true
+        u = 2* [Random.rand() for j in 1:p] .- 1;
+        if norm(u)<=1
+        return u
+        end
+    end
 end
 ############################################################################################################
 
@@ -123,13 +133,13 @@ end
 function add_selected_cuts(model, θ, sys::system,tmax::Float64,P::Int64,constraints::Vector{Any},λ::Vector{Float64})
     success = attempts = 0 ; 
     max_violation = 0;
-    while success<P
+    while success<P && attempts<MAX_NUMBER_OF_ATTEMPTS
         attempts+=1
          t = Random.rand()*tmax;
          x = ((sys.xmax.-sys.xmin) .* [Random.rand() for j in 1:nx]) .+ sys.xmin;
          hmin,u = Hmin(sys,vcat(t,x),λ) ; 
          value = hmin + 1;
-         if value < 0
+         if value < -1e-3
             max_violation = min(max_violation,value);
             append!(constraints, [add_hamiltonian_constraint(model,θ, sys,t,x,u)]);
             success+=1;
@@ -140,7 +150,25 @@ function add_selected_cuts(model, θ, sys::system,tmax::Float64,P::Int64,constra
     return max_violation
  end
  
-
+ function add_selected_terminal_cuts(model, θ, sys::system,tmax::Float64,xT::Vector{Float64},P::Int64,constraints::Vector{Any},λ::Vector{Float64})
+    success = attempts = 0 ; 
+    max_violation = 0;
+    while success<P && attempts<MAX_NUMBER_OF_ATTEMPTS_FINAL
+        attempts+=1
+         t = Random.rand()*tmax;
+         u = random_vector_unit_ball(sys.nx);
+         x = xT + RADIUS_BALL * u;
+         value = v(vcat(t,x),λ);
+         if value > 1e-3
+            max_violation = max(max_violation,value);
+            append!(constraints, [add_terminal_constraint(model, θ, t, x)]);
+            success+=1;
+         end
+    end
+    println("(Terminal) Number of attempts = ",attempts);
+    println("(Terminal) Violation = ",max_violation);
+    return max_violation
+ end
     
     
 
@@ -155,7 +183,7 @@ function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ)
     add_hamiltonian_constraints_on_trajectory(model, θ, sys, traj_heur,constraints);
     add_hamiltonian_constraints_random(model, θ, sys,tmax,N_RANDOM_INIT,constraints);
     add_terminal_constraints(model, θ,xT,tmax,N_TERMINAL,constraints);
-    add_terminal_gradient_constraints(model, θ,sys,xT,tmax,N_TERMINAL,constraints);
+    #add_terminal_gradient_constraints(model, θ,sys,xT,tmax,N_TERMINAL,constraints);
     #add_terminal_sdp_constraints(model, θ,xT,tmax,200,constraints);
 
     set_objective(model,θ,x0,μ);
@@ -173,6 +201,10 @@ function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ)
         println("Value v(0,x0) = ",v(vcat(0.0,x0),λ));
         add_hamiltonian_constraints_on_trajectory(model, θ, sys, traj,constraints,λ);
         max_violation = add_selected_cuts(model, θ, sys,tmax,N_SELECTED_CONSTRAINTS,constraints,λ)
+
+        if CIRCLE_FINAL_SET
+            add_selected_terminal_cuts(model, θ, sys,tmax,xT,N_SELECTED_CONSTRAINTS_FINAL,constraints,λ)
+        end
     end
 
     optimize!(model);

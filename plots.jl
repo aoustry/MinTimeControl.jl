@@ -39,6 +39,12 @@ function plot_v_traj(sys::system,λ::Vector{Float64},traj::Vector{Any})
     png("plots/"*sys.name*".png");
 end
 
+function plot_hmin_traj(sys::system,λ::Vector{Float64},traj::Vector{Any})
+    plot();
+    plot!([el[1] for el in traj],  [Hmin(sys,el[1:1+sys.nx],λ)[1] for el in traj], xlabel = "Time", ylabel = "Hmin" );
+    png("plots/"*sys.name*"hmintraj.png");
+end
+
 function plot_hmin(sys::system,λ::Vector{Float64},ub_t::Float64)
     for t in 0:ub_t/20:ub_t
         plot();
