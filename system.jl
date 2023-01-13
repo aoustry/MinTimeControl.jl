@@ -42,9 +42,13 @@ function vmin_trajectory(sys::system,x0::Vector{Float64},xT::Vector{Float64},Tma
     while t <Tmax
         if norm(xT.-x) < TARGET_TOLERANCE
             return trajectory, t
+        elseif norm(xT.-x) < 3*TARGET_TOLERANCE
+            Δ = xT.-x;
+            u = heuristic_control(sys,t,x,Δ);
+        else
+            ∇ = ∇v(vcat(t,x),λ);
+            u = argmin(sys,t,x,∇[2:end]);
         end
-        ∇ = ∇v(vcat(t,x),λ);
-        u = argmin(sys,t,x,∇[2:end]);
         append!(trajectory,[vcat(t,x,u)]);
         x = x .+ dt*f(sys,t,x,u);
         t += dt;

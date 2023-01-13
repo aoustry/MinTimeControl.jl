@@ -3,7 +3,7 @@ using Random
 using JuMP
 
 dt = 1e-3;
-RADIUS_BALL = TARGET_TOLERANCE = 5*1e-2;
+RADIUS_BALL = TARGET_TOLERANCE = 1e-2; 
 include("system.jl")
 Random.seed!(0)
 N_TERMINAL = 1000
@@ -16,9 +16,10 @@ CIRCLE_FINAL_SET = true;
 TERMINAL_CONSTRAINT_EQ = false; 
 μ = 1e-5;
 STEP_ADD_TRAJ = 5
+OBJECTIVE_WITH_INTEGRAL = false;
 ########################################### System definition #####################################################
-#include("system_definition_zermelo.jl")
-include("system_definition_toyboat.jl")
+include("system_definition_zermelo.jl")
+#include("system_definition_toyboat.jl")
 ##################################################################################################################
 include("basis.jl");
 include("solver.jl");

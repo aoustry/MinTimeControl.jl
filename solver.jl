@@ -11,9 +11,9 @@ function set_objective(model,θ,x0::Vector{Float64},ρ::Float64)
     end
 end
 
-function set_objective_with_integral(model,θ,x0::Vector{Float64},ρ::Float64,tmax::Float64)
+function set_objective_with_integral(model,θ,x0::Vector{Float64},ρ::Float64,tmax::Float64,param::Float64)
     a = ϕ(vcat(0,x0));
-    P = 10000;
+    P = 100000;
     moments = zeros(N);
 
     for aux in 1:P
@@ -23,9 +23,9 @@ function set_objective_with_integral(model,θ,x0::Vector{Float64},ρ::Float64,tm
     end
 
     if ρ>0.0
-        @objective(model, Max, sum(a[i]*θ[i] for i in 1:N) + 0.005*sum(moments[i]*θ[i] for i in 1:N)  - ρ*sum(θ[i]*θ[i] for i in 1:N));
+        @objective(model, Max, sum(a[i]*θ[i] for i in 1:N) + param*sum(moments[i]*θ[i] for i in 1:N)  - ρ*sum(θ[i]*θ[i] for i in 1:N));
     else
-        @objective(model, Max, sum(a[i]*θ[i] for i in 1:N) + 0.005*sum(moments[i]*θ[i] for i in 1:N));
+        @objective(model, Max, sum(a[i]*θ[i] for i in 1:N) + param*sum(moments[i]*θ[i] for i in 1:N));
     end
 end
 ############################################################################################################
@@ -186,7 +186,11 @@ function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ)
     #add_terminal_gradient_constraints(model, θ,sys,xT,tmax,N_TERMINAL,constraints);
     #add_terminal_sdp_constraints(model, θ,xT,tmax,200,constraints);
 
-    set_objective(model,θ,x0,μ);
+    if OBJECTIVE_WITH_INTEGRAL
+        set_objective_with_integral(model,θ,x0,μ,tmax,0.001);
+    else
+        set_objective(model,θ,x0,μ);
+    end
     λ = 0.0;
     max_violation = -Inf;
     while max_violation < -ϵ
