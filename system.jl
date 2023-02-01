@@ -62,6 +62,7 @@ struct zermelo_boat <: system
     nx::Integer;
     nu::Integer;
     flow_strength::Float64;
+    time_increasing_flow::Float64;
     xmax::Vector{Float64};
     umax::Vector{Float64};
     xmin::Vector{Float64};
@@ -70,7 +71,7 @@ end
 
 function flow(sys::zermelo_boat,x::Vector{Float64})
     @assert length(x)==sys.nx,
-    return [sys.flow_strength*sin(pi*(x[2]+0.5)),0] ; 
+    return [sys.flow_strength*sin(pi*(x[2]+0.5))*(1+sys.time_increasing_flow*x[1]),0] ; 
 end
 
 function f(sys::zermelo_boat,t::Float64,x::Vector{Float64},u::Vector{Float64})
@@ -165,4 +166,40 @@ function plot_test_direction(sys::system,t::Float64,g ::Vector{Float64})
     plot(Y1,Y2,aspect_ratio = 1);
     plot!([0.0,u[1]],[0.0,u[2]],aspect_ratio = 1)
     png("tests/"*sys.name*string(t)*".png")
+end
+
+
+################################################ Zermelo test case  ###############################################################
+struct brockett_integrator <: system
+    name::String
+    nx::Integer;
+    nu::Integer;
+    xmax::Vector{Float64};
+    umax::Vector{Float64};
+    xmin::Vector{Float64};
+    umin::Vector{Float64};
+end
+
+
+
+function f(sys::brockett_integrator,t::Float64,x::Vector{Float64},u::Vector{Float64})
+    return  [u[1],u[2],u[1]*x[2]-u[2]*x[1]] ;
+end
+
+function argmin(sys::brockett_integrator,t::Float64,x::Vector{Float64},g::Vector{Float64})
+    v = [g[1]+g[3]*x[2], g[2] - g[3]*x[1]];
+    return  -v/norm(v);
+end
+
+function heuristic_control(sys::brockett_integrator,t::Float64,x::Vector{Float64},g::Vector{Float64})
+    if abs(xT[3]-x[3])>1e-3
+        g = [0.0,0.0,(xT[3]-x[3])/abs(xT[3]-x[3])]
+    end
+    v = [g[1]+g[3]*x[2], g[2] - g[3]*x[1]];
+    return  v/norm(v);
+end
+
+function random_control(sys::brockett_integrator,t::Float64,x::Vector{Float64})
+    angle = Random.rand() * 2* pi;
+    return [cos(angle),sin(angle)]
 end
