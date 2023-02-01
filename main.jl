@@ -1,11 +1,10 @@
 using Gurobi
 using Random
 using JuMP
-
+Random.seed!(0)
 dt = 1e-3;
 RADIUS_BALL = TARGET_TOLERANCE = 1e-2; 
 include("system.jl")
-Random.seed!(0)
 N_TERMINAL = 1000
 N_SELECTED_CONSTRAINTS = 100 ;
 MAX_NUMBER_OF_ATTEMPTS = 100000;
@@ -14,7 +13,7 @@ MAX_NUMBER_OF_ATTEMPTS_FINAL = 10000;
 N_RANDOM_INIT = 1000
 CIRCLE_FINAL_SET = true;
 TERMINAL_CONSTRAINT_EQ = false; 
-μ = 1e-4; #1e-4 for brockett integrator #1e-4 for zermelo #5*1e-5 is better for toyboat
+μ = 1e-5; 
 ϵ = 0.1;
 STEP_ADD_TRAJ = 5
 OBJECTIVE_WITH_INTEGRAL = false; #false
