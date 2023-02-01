@@ -13,12 +13,12 @@ end
 
 function set_objective_with_integral(model,θ,x0::Vector{Float64},ρ::Float64,tmax::Float64,param::Float64)
     a = ϕ(vcat(0,x0));
-    P = 100000;
+    P = 10000;
     moments = zeros(N);
-
+    r = 0.05
     for aux in 1:P
-        t = Random.rand()*tmax;
-        x = ((sys.xmax.-sys.xmin) .* [Random.rand() for j in 1:nx]) .+ sys.xmin
+        t = 0;
+        x = (((2* r) .* [Random.rand() for j in 1:nx]) .- r .+ x0);
         moments = moments .+ ϕ(vcat(t,x))/P;
     end
 
@@ -187,7 +187,7 @@ function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ)
     #add_terminal_sdp_constraints(model, θ,xT,tmax,200,constraints);
 
     if OBJECTIVE_WITH_INTEGRAL
-        set_objective_with_integral(model,θ,x0,μ,tmax,0.001);
+        set_objective_with_integral(model,θ,x0,μ,tmax,0.1);
     else
         set_objective(model,θ,x0,μ);
     end
