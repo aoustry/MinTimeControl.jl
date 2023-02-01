@@ -4,7 +4,7 @@ using DynamicPolynomials
 
 ################################################ Begin Basis parameterization ###############################################################
 n = 1+nx;
-degree = 8; #or 9
+degree = 8; 
 @polyvar xvar[1:n]
 basis = monomials(xvar, 0:degree)
 #Polynomial basis
