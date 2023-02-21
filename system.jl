@@ -1,8 +1,6 @@
 using LinearAlgebra
 using Optim
 
-
-
 abstract type system end
 
 
@@ -23,16 +21,19 @@ function heuristic_trajectory(sys::system,x0::Vector{Float64},xT::Vector{Float64
     x = copy(x0);
     trajectory = [];
     while t <Tmax
+        if (is_feasible(sys,x))==false
+            return false, trajectory,t
+        end 
         Δ = xT.-x;
         if norm(Δ) < TARGET_TOLERANCE
-            return trajectory, t
+            return true,trajectory, t
         end
         u = heuristic_control(sys,t,x,Δ);
         append!(trajectory,[vcat(t,x,u)]);
         x = x .+ dt*f(sys,t,x,u);
         t += dt;
     end
-    return trajectory, t
+    return false, trajectory, t
 end
 
 function vmin_trajectory(sys::system,x0::Vector{Float64},xT::Vector{Float64},Tmax::Float64,λ::Vector{Float64})
@@ -40,9 +41,14 @@ function vmin_trajectory(sys::system,x0::Vector{Float64},xT::Vector{Float64},Tma
     x = copy(x0);
     trajectory = [];
     while t <Tmax
+        if  (is_feasible(sys,x))==false
+            print(false,x)
+            return false, trajectory,t
+        end 
         if norm(xT.-x) < TARGET_TOLERANCE
-            return trajectory, t
-        elseif norm(xT.-x) < 3*TARGET_TOLERANCE
+            print(true,x)
+            return true,trajectory, t
+        elseif norm(xT.-x) < 1.2*TARGET_TOLERANCE
             Δ = xT.-x;
             u = heuristic_control(sys,t,x,Δ);
         else
@@ -53,7 +59,8 @@ function vmin_trajectory(sys::system,x0::Vector{Float64},xT::Vector{Float64},Tma
         x = x .+ dt*f(sys,t,x,u);
         t += dt;
     end
-    return trajectory, t
+    print(false,x)
+    return false,trajectory, t
 end
 
 ################################################ Zermelo test case  ###############################################################
@@ -71,7 +78,7 @@ end
 
 function flow(sys::zermelo_boat,x::Vector{Float64})
     @assert length(x)==sys.nx,
-    return [sys.flow_strength*sin(pi*(x[2]+0.5))*(1+sys.time_increasing_flow*x[1]),0] ; 
+    return [sys.flow_strength*sin(pi*x[2])*(1+sys.time_increasing_flow*x[1]),0] ; 
 end
 
 function f(sys::zermelo_boat,t::Float64,x::Vector{Float64},u::Vector{Float64})
@@ -99,6 +106,9 @@ function random_control(sys::zermelo_boat,t::Float64,x::Vector{Float64})
     return [cos(angle),sin(angle)]
 end
 
+function is_feasible(sys::zermelo_boat,x::Vector{Float64})
+    return true
+end
 
 ################################################ toy_boat test case  ###############################################################
 struct toy_boat <: system
@@ -168,6 +178,12 @@ function plot_test_direction(sys::system,t::Float64,g ::Vector{Float64})
     png("tests/"*sys.name*string(t)*".png")
 end
 
+function is_feasible(sys::toy_boat,x::Vector{Float64})
+    #if sqrt((x[1]-0.4)^2+(x[2]+0.25)^2)<0.2
+    #    return false
+    #end
+    return true
+end
 
 ################################################ Zermelo test case  ###############################################################
 struct brockett_integrator <: system
@@ -179,7 +195,6 @@ struct brockett_integrator <: system
     xmin::Vector{Float64};
     umin::Vector{Float64};
 end
-
 
 
 function f(sys::brockett_integrator,t::Float64,x::Vector{Float64},u::Vector{Float64})
@@ -202,4 +217,8 @@ end
 function random_control(sys::brockett_integrator,t::Float64,x::Vector{Float64})
     angle = Random.rand() * 2* pi;
     return [cos(angle),sin(angle)]
+end
+
+function is_feasible(sys::brockett_integrator,x::Vector{Float64})
+    return true
 end

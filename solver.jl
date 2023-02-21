@@ -93,7 +93,7 @@ function add_hamiltonian_constraints_on_trajectory(model, θ, sys::system, traj:
     for aux in 1:STEP_ADD_TRAJ:length(traj)
             vector = traj[aux]; 
             t,x,u = vector[1],vector[2:nx+1],vector[nx+2:nx+nu+1];
-            if H(sys,t,x,u,λ)<-1
+            if is_feasible(sys,x) && H(sys,t,x,u,λ)<-1
                 added+=1;
                 append!(constraints, [add_hamiltonian_constraint(model,θ, sys,t,x,u)]);
             end
@@ -105,7 +105,10 @@ end
 function add_hamiltonian_constraints_on_trajectory(model, θ, sys::system, traj::Vector{Any},constraints::Vector{Any})
     for aux in 1:length(traj)
             vector = traj[aux]; 
-            append!(constraints, [add_hamiltonian_constraint(model,θ, sys,vector[1],vector[2:nx+1],vector[nx+2:nx+nu+1])]);
+            x = vector[2:nx+1];
+            if is_feasible(sys,x)
+                append!(constraints, [add_hamiltonian_constraint(model,θ, sys,vector[1],x,vector[nx+2:nx+nu+1])]);
+            end
     end
 end
 
@@ -113,8 +116,10 @@ function add_hamiltonian_constraints_random(model, θ, sys::system,tmax::Float64
    for aux in 1:P
         t = Random.rand()*tmax;
         x = ((sys.xmax.-sys.xmin) .* [Random.rand() for j in 1:sys.nx]) .+ sys.xmin;
-        u = random_control(sys,t,x);
-        append!(constraints, [add_hamiltonian_constraint(model,θ, sys,t,x,u)]);
+        if is_feasible(sys,x)
+            u = random_control(sys,t,x);
+            append!(constraints, [add_hamiltonian_constraint(model,θ, sys,t,x,u)]);
+        end
    end
 end
 
@@ -134,16 +139,18 @@ function add_selected_cuts(model, θ, sys::system,tmax::Float64,P::Int64,constra
     success = attempts = 0 ; 
     max_violation = 0;
     while success<P && attempts<MAX_NUMBER_OF_ATTEMPTS
-        attempts+=1
          t = Random.rand()*tmax;
          x = ((sys.xmax.-sys.xmin) .* [Random.rand() for j in 1:nx]) .+ sys.xmin;
-         hmin,u = Hmin(sys,vcat(t,x),λ) ; 
-         value = hmin + 1;
-         if value < -1e-3
-            max_violation = min(max_violation,value);
-            append!(constraints, [add_hamiltonian_constraint(model,θ, sys,t,x,u)]);
-            success+=1;
-         end
+         if is_feasible(sys,x)
+            attempts+=1
+            hmin,u = Hmin(sys,vcat(t,x),λ) ; 
+            value = hmin + 1;
+            if value < -1e-3
+                max_violation = min(max_violation,value);
+                append!(constraints, [add_hamiltonian_constraint(model,θ, sys,t,x,u)]);
+                success+=1;
+            end
+        end
     end
     println("Number of attempts = ",attempts);
     println("Violation = ",max_violation);
@@ -196,8 +203,8 @@ function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ)
     while max_violation < -ϵ
         optimize!(model);
         λ = [value(θ[i]) for i in 1:N];
-        traj,tmax_new = vmin_trajectory(sys,x0,xT,tmax,λ)
-        if tmax_new < tmax
+        success, traj,tmax_new = vmin_trajectory(sys,x0,xT,tmax,λ)
+        if success && (tmax_new < tmax)
             tmax = tmax_new
             best_traj = traj
         end
@@ -213,8 +220,8 @@ function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ)
 
     optimize!(model);
     λ = [value(θ[i]) for i in 1:N];
-    traj,tmax_new = vmin_trajectory(sys,x0,xT,tmax,λ)
-    if tmax_new < tmax
+    success,traj,tmax_new = vmin_trajectory(sys,x0,xT,tmax,λ)
+    if success && (tmax_new < tmax)
         tmax = tmax_new
         best_traj = traj
     end
