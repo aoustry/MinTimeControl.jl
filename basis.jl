@@ -4,7 +4,7 @@ using DynamicPolynomials
 
 ################################################ Begin Basis parameterization ###############################################################
 n = 1+nx;
-degree = 9;  #8 
+degree = 7;  #9 is best for boats
 @polyvar xvar[1:n]
 basis = monomials(xvar, 0:degree)
 #Polynomial basis

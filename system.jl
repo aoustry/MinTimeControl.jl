@@ -185,7 +185,7 @@ function is_feasible(sys::toy_boat,x::Vector{Float64})
     return true
 end
 
-################################################ Zermelo test case  ###############################################################
+################################################ Brockett integrator test case  ###############################################################
 struct brockett_integrator <: system
     name::String
     nx::Integer;
@@ -220,5 +220,52 @@ function random_control(sys::brockett_integrator,t::Float64,x::Vector{Float64})
 end
 
 function is_feasible(sys::brockett_integrator,x::Vector{Float64})
+    return true
+end
+
+################################################ Generalized Brockett integrator test case  ###############################################################
+struct gen_brockett_integrator <: system
+    name::String
+    nx::Integer;
+    nu::Integer;
+    xmax::Vector{Float64};
+    umax::Vector{Float64};
+    xmin::Vector{Float64};
+    umin::Vector{Float64};
+end
+
+function brockett_vector(sys::gen_brockett_integrator,t::Float64,x::Vector{Float64})
+    return [x[2],-x[1],sin(0.3*x[3])]
+end
+
+function f(sys::gen_brockett_integrator,t::Float64,x::Vector{Float64},u::Vector{Float64})
+    vector = brockett_vector(sys,t,x);
+    return  vcat(u,vector'*u) ;
+end
+
+function argmin(sys::gen_brockett_integrator,t::Float64,x::Vector{Float64},g::Vector{Float64})
+    vector = brockett_vector(sys,t,x);
+    v = g[1:sys.nu]+g[sys.nu+1]*vector;
+    return  -v/norm(v);
+end
+
+function heuristic_control(sys::gen_brockett_integrator,t::Float64,x::Vector{Float64},g::Vector{Float64})
+    if abs(xT[sys.nx]-x[sys.nx])>1e-3
+        g = vcat(zeros(sys.nu),(xT[sys.nx]-x[sys.nx])/abs(xT[sys.nx]-x[sys.nx]));
+    end
+    vector = brockett_vector(sys,t,x);
+    v = g[1:sys.nu]+g[sys.nu+1]*vector;
+    return  v/norm(v);
+end
+
+function random_control(sys::gen_brockett_integrator,t::Float64,x::Vector{Float64})
+    v = zeros(sys.nu)
+    while norm(v) < .0001
+        v = randn(sys.nu);
+    end
+    v = v / norm(v) 
+end
+
+function is_feasible(sys::gen_brockett_integrator,x::Vector{Float64})
     return true
 end

@@ -20,7 +20,7 @@ OBJECTIVE_WITH_INTEGRAL = false;
 ########################################### System definition #####################################################
 #include("system_definition_zermelo.jl")
 #include("system_definition_toyboat.jl")
-include("system_definition_brockett.jl")
+include("system_definition_gen_brockett.jl")
 ##################################################################################################################
 include("basis.jl");
 include("solver.jl");
@@ -42,9 +42,9 @@ plot_v_traj(sys,λ,best_traj)
 #plot_hmin(sys,λ,tmax*1.1)
 #plot_field(sys,λ,tmax*1.1)
 
-success, traj,tmax_new = vmin_trajectory(sys,x0,xT,tmax,λ)
+#= success, traj,tmax_new = vmin_trajectory(sys,x0,xT,tmax,λ)
 plot_v_traj(sys,λ,traj)
 plot_traj(traj,[2,3])
 
-plot_hmin_traj(sys,λ,best_traj)
+plot_hmin_traj(sys,λ,best_traj) =#
 
