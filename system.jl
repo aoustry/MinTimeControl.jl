@@ -234,9 +234,7 @@ struct gen_brockett_integrator <: system
     umin::Vector{Float64};
 end
 
-function brockett_vector(sys::gen_brockett_integrator,t::Float64,x::Vector{Float64})
-    return [x[2],-x[1],sin(0.3*x[3])]
-end
+
 
 function f(sys::gen_brockett_integrator,t::Float64,x::Vector{Float64},u::Vector{Float64})
     vector = brockett_vector(sys,t,x);

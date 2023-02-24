@@ -2,7 +2,7 @@ using Gurobi
 using Random
 using JuMP
 Random.seed!(0)
-dt = 1e-3;
+dt = 1e-3; #1e-3
 RADIUS_BALL = TARGET_TOLERANCE = 5*1e-2; #1e-2
 include("system.jl")
 N_TERMINAL = 1000
@@ -14,8 +14,8 @@ N_RANDOM_INIT = 1000
 CIRCLE_FINAL_SET = true;
 TERMINAL_CONSTRAINT_EQ = false; 
 μ = 1e-5;  #1e-5
-ϵ = 0.05;   #0.005
-STEP_ADD_TRAJ = 5
+ϵ = 0.05;   #0.05
+STEP_ADD_TRAJ = 1 ; #5
 OBJECTIVE_WITH_INTEGRAL = false; 
 ########################################### System definition #####################################################
 #include("system_definition_zermelo.jl")
@@ -35,10 +35,10 @@ println("Tmax heuristic trajectory = ",tmax)
 best_traj,tmax,λ = dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ)
 plot_∇v_terminal(sys,λ,xT,tmax)
 plot_v_terminal(sys,λ,xT,tmax)
-plot_traj(best_traj,[2,3])
+plot_traj(best_traj,[2,5])
 plot_v_traj(sys,λ,best_traj)
 
-
+#plot_traj(best_traj,[2,5])
 #plot_hmin(sys,λ,tmax*1.1)
 #plot_field(sys,λ,tmax*1.1)
 

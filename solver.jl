@@ -145,7 +145,7 @@ function add_selected_cuts(model, θ, sys::system,tmax::Float64,P::Int64,constra
             attempts+=1
             hmin,u = Hmin(sys,vcat(t,x),λ) ; 
             value = hmin + 1;
-            if value < -1e-3
+            if value < -1e-4 #1e-3
                 max_violation = min(max_violation,value);
                 append!(constraints, [add_hamiltonian_constraint(model,θ, sys,t,x,u)]);
                 success+=1;
