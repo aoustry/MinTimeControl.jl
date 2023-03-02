@@ -201,20 +201,24 @@ function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ,simplex)
         set_objective(model,θ,x0,μ);
     end
     λ = 0.0;
+    curr_obj = Inf;
     max_violation = -Inf;
     while max_violation < -ϵ
         optimize!(model);
+        curr_obj = objective_value(model);
         λ = [value(θ[i]) for i in 1:N];
         success, traj,tmax_new = vmin_trajectory(sys,x0,xT,tmax,λ)
         if success && (tmax_new < tmax)
             tmax = tmax_new
             best_traj = traj
         end
+        
         println("Time best feasible control = ",tmax);
         println("Value v(0,x0) = ",v(vcat(0.0,x0),λ));
         add_hamiltonian_constraints_on_trajectory(model, θ, sys, traj,constraints,λ);
         max_violation = add_selected_cuts(model, θ, sys,tmax,N_SELECTED_CONSTRAINTS,constraints,λ)
-
+        println("UB objective_value SIP_ρ = ",curr_obj)
+        println("A-LB objective_value SIP_ρ = ",curr_obj+2*(1+tmax)*max_violation)
         if CIRCLE_FINAL_SET
             add_selected_terminal_cuts(model, θ, sys,tmax,xT,N_SELECTED_CONSTRAINTS_FINAL,constraints,λ)
         end
@@ -229,5 +233,8 @@ function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ,simplex)
     end
     println("Time feasible control = ",tmax)
     println("Value v(0,x0) = ",v(vcat(0.0,x0),λ));
+    println("UB objective_value SIP_ρ = ",curr_obj)
+    println("A-LB objective_value SIP_ρ = ",curr_obj+2*(1+tmax)*max_violation)
+    println("A-LB objective_value SIP = ",v(vcat(0.0,x0),λ)+2*(1+tmax)*max_violation)
     return best_traj, tmax,λ
 end

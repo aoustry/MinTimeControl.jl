@@ -19,9 +19,9 @@ STEP_ADD_TRAJ = 1 ; #5
 OBJECTIVE_WITH_INTEGRAL = false; 
 simplex = true;
 ########################################### System definition #####################################################
-#include("system_definition_zermelo.jl")
+include("system_definition_zermelo.jl")
 #include("system_definition_toyboat.jl")
-include("system_definition_gen_brockett.jl")
+#include("system_definition_gen_brockett.jl")
 ##################################################################################################################
 include("basis.jl");
 include("solver.jl");
