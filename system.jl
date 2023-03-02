@@ -76,13 +76,13 @@ struct zermelo_boat <: system
     umin::Vector{Float64};
 end
 
-function flow(sys::zermelo_boat,x::Vector{Float64})
+function flow(sys::zermelo_boat,t::Float64,x::Vector{Float64})
     @assert length(x)==sys.nx,
-    return [sys.flow_strength*sin(pi*x[2])*(1+sys.time_increasing_flow*x[1]),0] ; 
+    return [-sys.flow_strength*sin(pi*x[2])*(1+sys.time_increasing_flow*t),0] ; 
 end
 
 function f(sys::zermelo_boat,t::Float64,x::Vector{Float64},u::Vector{Float64})
-    return  u - flow(sys, x) ;
+    return  u - flow(sys, t,x) ;
 end
 
 function argmin(sys::zermelo_boat,t::Float64,x::Vector{Float64},g::Vector{Float64})
@@ -90,7 +90,7 @@ function argmin(sys::zermelo_boat,t::Float64,x::Vector{Float64},g::Vector{Float6
 end
 
 function heuristic_control(sys::zermelo_boat,t::Float64,x::Vector{Float64},g::Vector{Float64})
-    flow_vector = flow(sys,x);
+    flow_vector = flow(sys,t,x);
     a = norm(g)^2;
     b = 2*flow_vector'*g;
     c = norm(flow_vector)^2 - 1;
@@ -123,7 +123,7 @@ struct toy_boat <: system
 end
 
 function wind_speed(sys::toy_boat,t::Float64,x::Vector{Float64})
-    return 2.5
+    return 2 + t
 end
 
 function wind_angle(sys::toy_boat,t::Float64,x::Vector{Float64})
@@ -248,7 +248,7 @@ function argmin(sys::gen_brockett_integrator,t::Float64,x::Vector{Float64},g::Ve
 end
 
 function heuristic_control(sys::gen_brockett_integrator,t::Float64,x::Vector{Float64},g::Vector{Float64})
-    if abs(xT[sys.nx]-x[sys.nx])>1e-3
+    if abs(xT[sys.nx]-x[sys.nx])>1e-2
         g = vcat(zeros(sys.nu),(xT[sys.nx]-x[sys.nx])/abs(xT[sys.nx]-x[sys.nx]));
     end
     vector = brockett_vector(sys,t,x);

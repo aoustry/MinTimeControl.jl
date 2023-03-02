@@ -145,7 +145,7 @@ function add_selected_cuts(model, θ, sys::system,tmax::Float64,P::Int64,constra
             attempts+=1
             hmin,u = Hmin(sys,vcat(t,x),λ) ; 
             value = hmin + 1;
-            if value < -1e-4 #1e-3
+            if value < -1e-3 #1e-3
                 max_violation = min(max_violation,value);
                 append!(constraints, [add_hamiltonian_constraint(model,θ, sys,t,x,u)]);
                 success+=1;
@@ -181,10 +181,12 @@ function add_selected_cuts(model, θ, sys::system,tmax::Float64,P::Int64,constra
 
 
 ##################################################### Main function ###########################################################
-function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ)
+function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ,simplex)
     best_traj = traj_heur
     model = Model(Gurobi.Optimizer);
-    set_optimizer_attribute(model, "Method", 1)
+    if simplex
+        set_optimizer_attribute(model, "Method", 1)
+    end
     @variable(model, θ[1:N]);
     constraints = [];
     add_hamiltonian_constraints_on_trajectory(model, θ, sys, traj_heur,constraints);
