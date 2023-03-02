@@ -14,9 +14,10 @@ N_RANDOM_INIT = 1000
 CIRCLE_FINAL_SET = true;
 TERMINAL_CONSTRAINT_EQ = false; 
 μ = 1e-5;  #1e-5
-ϵ = 0.05;   #0.05
+ϵ = 0.005;   #0.05
 STEP_ADD_TRAJ = 1 ; #5
 OBJECTIVE_WITH_INTEGRAL = false; 
+simplex = true;
 ########################################### System definition #####################################################
 #include("system_definition_zermelo.jl")
 #include("system_definition_toyboat.jl")
@@ -32,19 +33,9 @@ if success==false
 end
 println("Success heuristic trajectory = ",success)
 println("Tmax heuristic trajectory = ",tmax)
-best_traj,tmax,λ = dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ)
-plot_∇v_terminal(sys,λ,xT,tmax)
-plot_v_terminal(sys,λ,xT,tmax)
-plot_traj(best_traj,[2,5])
-plot_v_traj(sys,λ,best_traj)
-
-#plot_traj(best_traj,[2,5])
-#plot_hmin(sys,λ,tmax*1.1)
-#plot_field(sys,λ,tmax*1.1)
-
-#= success, traj,tmax_new = vmin_trajectory(sys,x0,xT,tmax,λ)
-plot_v_traj(sys,λ,traj)
-plot_traj(traj,[2,3])
-
-plot_hmin_traj(sys,λ,best_traj) =#
+best_traj,tmax,λ = dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ,simplex)
+#plot_∇v_terminal(sys,λ,xT,tmax)
+#plot_v_terminal(sys,λ,xT,tmax)
+#plot_traj(best_traj,[2,3])
+#plot_v_traj(sys,λ,best_traj)
 
