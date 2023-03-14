@@ -2,7 +2,7 @@ using ForwardDiff
 using DynamicPolynomials
 ################################################ Begin Basis parameterization ###############################################################
 n = 1+nx;
-degree = 4; #4 works surprisingly well  #7 is good for boats and for the generalized brockett_integrator #9 is better for toyboat
+degree = 3; #4 works surprisingly well  #7 is good for boats and for the generalized brockett_integrator #9 is better for toyboat
 @polyvar xvar[1:n]
 basis = monomials(xvar, 0:degree)
 #Polynomial basis

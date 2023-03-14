@@ -201,9 +201,12 @@ function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ,simplex)
         set_objective(model,θ,x0,μ);
     end
     λ = 0.0;
+    iter = 0;
     curr_obj = Inf;
     max_violation = -Inf;
+    seq_control,seq_ub,seq_lb,seq_bounds = [],[],[],[]
     while max_violation < -ϵ
+        iter+=1;
         optimize!(model);
         curr_obj = objective_value(model);
         λ = [value(θ[i]) for i in 1:N];
@@ -222,6 +225,7 @@ function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ,simplex)
         if CIRCLE_FINAL_SET
             add_selected_terminal_cuts(model, θ, sys,tmax,xT,N_SELECTED_CONSTRAINTS_FINAL,constraints,λ)
         end
+        seq_control,seq_ub,seq_lb,seq_bounds = [seq_control;tmax],[seq_ub;curr_obj],[seq_lb;curr_obj+2*(1+tmax)*max_violation],[seq_bounds;v(vcat(0.0,x0),λ)+2*(1+tmax)*max_violation]
     end
 
     optimize!(model);
@@ -236,5 +240,6 @@ function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ,simplex)
     println("UB objective_value SIP_ρ = ",curr_obj)
     println("A-LB objective_value SIP_ρ = ",curr_obj+2*(1+tmax)*max_violation)
     println("A-LB objective_value SIP = ",v(vcat(0.0,x0),λ)+2*(1+tmax)*max_violation)
-    return best_traj, tmax,λ
+    seq_control,seq_ub,seq_lb,seq_bounds = [seq_control;tmax],[seq_ub;curr_obj],[seq_lb;curr_obj+2*(1+tmax)*max_violation],[seq_bounds;v(vcat(0.0,x0),λ)+2*(1+tmax)*max_violation]
+    return best_traj, tmax,λ, v(vcat(0.0,x0),λ)+2*(1+tmax)*max_violation,iter,seq_control,seq_ub,seq_lb,seq_bounds
 end
