@@ -1,7 +1,7 @@
 ########################################### System definition #####################################################
-function brockett_vector(sys::gen_brockett_integrator,t::Float64,x::Vector{Float64})
+function brockett_vector(sys::gen_brockett_integrator,t::AbstractFloat,x::AbstractArray)
     #return [x[2],-x[1],sin(0.3*x[3]),exp(x[1]*x[2])]
-    return [1/(1+x[4]),-x[1],-cos(x[1]*x[3]),exp(x[2]),x[1]*x[2]*x[6]]
+    return [1.0/(1+x[4]),-x[1],-cos(x[1]*x[3]),exp(x[2]),x[1]*x[2]*x[6]]
 end
 name_system = "gen_brockett"
 nx, nu = 6,5;

@@ -19,31 +19,36 @@ TERMINAL_CONSTRAINT_EQ = false;
 STEP_ADD_TRAJ = 1 ; #5
 OBJECTIVE_WITH_INTEGRAL = false; 
 simplex = true;
+certification = true;
 ########################################### System definition #####################################################
 #system_file_name = "system_definition_zermelo.jl";
-#system_file_name ="system_definition_toyboat.jl";
-system_file_name ="system_definition_gen_brockett6.jl";
+system_file_name ="system_definition_toyboat.jl";
+#system_file_name ="system_definition_gen_brockett6.jl";
 include(system_file_name);
 ##################################################################################################################
+degree = 2; #4 works surprisingly well  #7 is good for boats and for the generalized brockett_integrator #9 is better for toyboat
 include("basis.jl");
 include("solver.jl");
 include("plots.jl");
 ##################################################################################################################
-time = @elapsed begin
-success,traj_heur,tmax = heuristic_trajectory(sys,x0,xT,Tmax)
-if success==false
+time_heur = @elapsed begin
+success_heur,traj_heur,tmax = heuristic_trajectory(sys,x0,xT,Tmax)
+if success_heur==false
     tmax = Tmax
 end
-println("Success heuristic trajectory = ",success)
-println("Tmax heuristic trajectory = ",tmax)
-best_traj,tmax,λ, lb, iter, seq_control,seq_ub,seq_lb,seq_bounds = dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ,simplex)
 end
+println("Success heuristic trajectory = ",success_heur)
+println("Tmax heuristic trajectory = ",tmax)
+best_traj,tmax,λ, lb, logs = dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ,simplex,certification)
 
-res =  Dict("time"=>time,"ub"=> tmax,"lb"=> lb,"degree"=> degree,"iterations"=> iter,"array_time_control"=>seq_control,"array_ub_siprho"=>seq_ub,"array_lb_siprho"=>seq_lb,"array_lb"=>seq_bounds)
+logs["time_heur"] = time_heur
+logs["ub"] = tmax
+logs["lb"] = lb
 
+#Saving result
 array = split(system_file_name,"_")
 name = array[length(array)]
-save("logs/"*name*"_"*string(degree)*".jld", "data", res)
+save("logs/"*name*"_"*string(degree)*"_"*string(certification)*".jld", "data", logs)
 
 #plot_∇v_terminal(sys,λ,xT,tmax)
 #plot_v_terminal(sys,λ,xT,tmax)

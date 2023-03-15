@@ -177,11 +177,9 @@ function add_selected_cuts(model, θ, sys::system,tmax::Float64,P::Int64,constra
     return max_violation
  end
     
-    
-
-
 ##################################################### Main function ###########################################################
-function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ,simplex)
+function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ,simplex,certification)
+    time = @elapsed begin
     best_traj = traj_heur
     model = Model(Gurobi.Optimizer);
     if simplex
@@ -192,9 +190,6 @@ function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ,simplex)
     add_hamiltonian_constraints_on_trajectory(model, θ, sys, traj_heur,constraints);
     add_hamiltonian_constraints_random(model, θ, sys,tmax,N_RANDOM_INIT,constraints);
     add_terminal_constraints(model, θ,xT,tmax,N_TERMINAL,constraints);
-    #add_terminal_gradient_constraints(model, θ,sys,xT,tmax,N_TERMINAL,constraints);
-    #add_terminal_sdp_constraints(model, θ,xT,tmax,200,constraints);
-
     if OBJECTIVE_WITH_INTEGRAL
         set_objective_with_integral(model,θ,x0,μ,tmax,0.1);
     else
@@ -215,19 +210,20 @@ function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ,simplex)
             tmax = tmax_new
             best_traj = traj
         end
-        
         println("Time best feasible control = ",tmax);
         println("Value v(0,x0) = ",v(vcat(0.0,x0),λ));
         add_hamiltonian_constraints_on_trajectory(model, θ, sys, traj,constraints,λ);
         max_violation = add_selected_cuts(model, θ, sys,tmax,N_SELECTED_CONSTRAINTS,constraints,λ)
-        println("UB objective_value SIP_ρ = ",curr_obj)
-        println("A-LB objective_value SIP_ρ = ",curr_obj+2*(1+tmax)*max_violation)
+        #obj,bound, y = certify_hjb(sys,λ,tmax,optimizer_with_attributes(Ipopt.Optimizer,"max_iter"=> 500));
+        #println("Max Violation according to Ipopt = ",obj);
+        #add_hamiltonian_constraint(model,θ, sys,y[1],y[2:1+nx],y[nx+2:nu+nx+1]);
+        println("UB objective_value SIP_ρ = ",curr_obj);
+        println("A-LB objective_value SIP_ρ = ",curr_obj+2*(1+tmax)*max_violation);
         if CIRCLE_FINAL_SET
             add_selected_terminal_cuts(model, θ, sys,tmax,xT,N_SELECTED_CONSTRAINTS_FINAL,constraints,λ)
         end
         seq_control,seq_ub,seq_lb,seq_bounds = [seq_control;tmax],[seq_ub;curr_obj],[seq_lb;curr_obj+2*(1+tmax)*max_violation],[seq_bounds;v(vcat(0.0,x0),λ)+2*(1+tmax)*max_violation]
     end
-
     optimize!(model);
     λ = [value(θ[i]) for i in 1:N];
     success,traj,tmax_new = vmin_trajectory(sys,x0,xT,tmax,λ)
@@ -235,11 +231,31 @@ function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ,simplex)
         tmax = tmax_new
         best_traj = traj
     end
+    feas_penalty = 2*(1+tmax)*max_violation;
+    max_violation_1,max_violation_2,certification_time = -Inf,-Inf,-Inf 
+    if certification
+        certification_time = @elapsed begin
+        solver = optimizer_with_attributes(EAGO.Optimizer,"absolute_tolerance"=>1e-3,"time_limit"=>1.8*1e3);
+        obj,max_violation_1, _ = certify_hjb(sys,λ,tmax,solver);
+        solver = optimizer_with_attributes(EAGO.Optimizer,"absolute_tolerance"=>1e-3,"time_limit"=>1.8*1e3);
+        obj,max_violation_2 =certify_hjb_final(sys,λ,tmax,xT,solver);        
+        feas_penalty = tmax*max_violation_1 - max_violation_2;
+        end
+    end
     println("Time feasible control = ",tmax)
     println("Value v(0,x0) = ",v(vcat(0.0,x0),λ));
     println("UB objective_value SIP_ρ = ",curr_obj)
-    println("A-LB objective_value SIP_ρ = ",curr_obj+2*(1+tmax)*max_violation)
-    println("A-LB objective_value SIP = ",v(vcat(0.0,x0),λ)+2*(1+tmax)*max_violation)
-    seq_control,seq_ub,seq_lb,seq_bounds = [seq_control;tmax],[seq_ub;curr_obj],[seq_lb;curr_obj+2*(1+tmax)*max_violation],[seq_bounds;v(vcat(0.0,x0),λ)+2*(1+tmax)*max_violation]
-    return best_traj, tmax,λ, v(vcat(0.0,x0),λ)+2*(1+tmax)*max_violation,iter,seq_control,seq_ub,seq_lb,seq_bounds
+    println("A-LB objective_value SIP_ρ = ",curr_obj+feas_penalty)
+    println("A-LB objective_value SIP = ",v(vcat(0.0,x0),λ)+feas_penalty)
+    lb = v(vcat(0.0,x0),λ)+feas_penalty
+    end
+    logs = Dict("iter"=>iter,"array_time_control"=>[seq_control;tmax],"array_ub_siprho"=>[seq_ub;curr_obj],"array_lb_siprho"=>[seq_lb;curr_obj+2*(1+tmax)*max_violation],"array_lb"=>[seq_bounds;v(vcat(0.0,x0),λ)+2*(1+tmax)*max_violation])
+    logs["time"] = time
+    if certification
+        logs["certif_hjb1"] = max_violation_1
+        logs["certif_hjb2"] = max_violation_2
+        logs["certif_time"] = certification_time
+
+    end
+    return best_traj, tmax,λ, lb,logs
 end

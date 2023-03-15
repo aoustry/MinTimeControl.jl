@@ -1,5 +1,7 @@
 using LinearAlgebra
 using Optim
+using Ipopt
+using EAGO
 
 abstract type system end
 
@@ -76,12 +78,12 @@ struct zermelo_boat <: system
     umin::Vector{Float64};
 end
 
-function flow(sys::zermelo_boat,t::Float64,x::Vector{Float64})
+function flow(sys::zermelo_boat,t::AbstractFloat,x::AbstractArray)
     @assert length(x)==sys.nx,
     return [-sys.flow_strength*sin(pi*x[2])*(1+sys.time_increasing_flow*t),0] ; 
 end
 
-function f(sys::zermelo_boat,t::Float64,x::Vector{Float64},u::Vector{Float64})
+function f(sys::zermelo_boat,t::AbstractFloat,x::AbstractArray,u::AbstractArray)
     return  u - flow(sys, t,x) ;
 end
 
@@ -110,6 +112,43 @@ function is_feasible(sys::zermelo_boat,x::Vector{Float64})
     return true
 end
 
+function certify_hjb(sys::zermelo_boat,λ::AbstractArray,tmax::Float64,optimizer)
+    N = length(λ);
+    model_cert = Model(optimizer);
+    @variable(model_cert, 0<= t <= tmax);
+    @variable(model_cert, sys.xmin[i] <= x[i = 1:2]<=sys.xmax[i]);
+    @variable(model_cert, -1.0<= u[i=1:2] <= 1.0);
+    @NLconstraint(model_cert, u[1]^2 + u[2]^2==1.0);
+    @NLexpression(model_cert, ft, 1.0);
+    @NLexpression(model_cert, fx1, u[1] + sys.flow_strength*sin(pi*x[2])*(1+sys.time_increasing_flow*t));
+    @NLexpression(model_cert, fx2, u[2]);
+    
+    g1(t::T, x1::T, x2:: T) where {T<:Real} = sum(λ[i]*subs(symb∇[i],xvar=>[t,x1,x2])[1].α for i in 1:N)
+    g2(t::T, x1::T, x2:: T) where {T<:Real} = sum(λ[i]*subs(symb∇[i],xvar=>[t,x1,x2])[2].α for i in 1:N)
+    g3(t::T, x1::T, x2:: T) where {T<:Real} = sum(λ[i]*subs(symb∇[i],xvar=>[t,x1,x2])[3].α for i in 1:N)
+
+    register(model_cert, :g1, 3, g1; autodiff = true)
+    register(model_cert, :g2, 3, g2; autodiff = true)
+    register(model_cert, :g3, 3, g3; autodiff = true)
+
+    @NLobjective(model_cert, Min, 1.0 + g1(t,x[1],x[2])*ft + g2(t,x[1],x[2])*fx1 + g3(t,x[1],x[2])*fx2);
+    optimize!(model_cert);
+    return objective_value(model_cert),objective_bound(model_cert),[value(t),value(x[1]),value(x[2]),value(u[1]),value(u[2])]
+end
+
+function certify_hjb_final(sys::zermelo_boat,λ::AbstractArray,tmax::Float64,xT::AbstractArray,optimizer)
+    model_cert = Model(optimizer);
+    @variable(model_cert, 0<= t <= tmax);
+    @variable(model_cert, sys.xmin[i] <= x[i = 1:2]<=sys.xmax[i]);
+    @NLconstraint(model_cert, (x[1]-xT[1])^2+(x[2]-xT[2])^2 <= TARGET_TOLERANCE^2);
+    vstar(t::T, x1::T, x2:: T) where {T<:Real} = v([t,x1,x2],λ);
+    register(model_cert, :vstar, 3, vstar; autodiff = true)
+    @NLobjective(model_cert, Max, vstar(t,x[1],x[2]));
+    optimize!(model_cert);
+    return objective_value(model_cert),objective_bound(model_cert)
+end
+
+
 ################################################ toy_boat test case  ###############################################################
 struct toy_boat <: system
     name::String
@@ -122,20 +161,20 @@ struct toy_boat <: system
     umin::Vector{Float64};
 end
 
-function wind_speed(sys::toy_boat,t::Float64,x::Vector{Float64})
+function wind_speed(sys::toy_boat,t::AbstractFloat,x::AbstractArray)
     return 2 + t
 end
 
-function wind_angle(sys::toy_boat,t::Float64,x::Vector{Float64})
+function wind_angle(sys::toy_boat,t::AbstractFloat,x::AbstractArray)
     return 0.5*pi*(1-0.4*t)
 end
 
-function polar(sys::toy_boat,rel_angle::Float64)
+function polar(sys::toy_boat,rel_angle::AbstractFloat)
     return abs(sin(sys.polar_coef*rel_angle))
 end
 
 
-function f(sys::toy_boat,t::Float64,x::Vector{Float64},u::Vector{Float64})
+function f(sys::toy_boat,t::AbstractFloat,x::AbstractArray,u::AbstractArray)
     @assert abs(norm(u)-1)<1e-6;
     heading = angle(u[1] + im*u[2]);
     relative_angle = wind_angle(sys,t,x) - heading;
@@ -144,12 +183,21 @@ function f(sys::toy_boat,t::Float64,x::Vector{Float64},u::Vector{Float64})
     return r*u;
 end
 
+#function fα1(sys::toy_boat,t::AbstractFloat,x::AbstractArray,α::AbstractFloat)
+#    heading = α;
+#    relative_angle = wind_angle(sys,t,x) - heading;
+#    relative_angle = (relative_angle + pi)%(2*pi) - pi;
+#    r = wind_speed(sys,t,x)*polar(sys,relative_angle);
+#    return r*cos(α);
+#end
+
 function argmin(sys::toy_boat,t::Float64,x::Vector{Float64},g::Vector{Float64})
     res = optimize(theta -> f(sys,t,x,[cos(theta),sin(theta)])'*g, -2*pi, 2*pi,Brent());
     θ = Optim.minimizer(res)[1];
     return [cos(θ),sin(θ)]
 end
-    
+
+
 
 function heuristic_control(sys::toy_boat,t::Float64,x::Vector{Float64},g::Vector{Float64})
     return g/norm(g)
@@ -179,10 +227,46 @@ function plot_test_direction(sys::system,t::Float64,g ::Vector{Float64})
 end
 
 function is_feasible(sys::toy_boat,x::Vector{Float64})
-    #if sqrt((x[1]-0.4)^2+(x[2]+0.25)^2)<0.2
-    #    return false
-    #end
     return true
+end
+
+function certify_hjb(sys::toy_boat,λ::AbstractArray,tmax::Float64,optimizer)
+    N = length(λ);
+    model_cert = Model(optimizer);
+    @variable(model_cert, 0<= time <= tmax);
+    @variable(model_cert, sys.xmin[i] <= x[i = 1:2]<=sys.xmax[i]);
+    @variable(model_cert, -pi<= α <= pi);
+    ws(t::T) where {T<:Real} = 2 + t;
+    wa(t::T) where {T<:Real} = 0.5*pi*(1-0.4*t);
+    polar(δ::T) where {T<:Real} =  (abs(sin(sys.polar_coef*δ)));
+    diff_angle(δ1::T,δ2::T) where {T<:Real} =  if (-π <= (δ1 - δ2)<=π) δ1 - δ2 elseif (-2*π <= (δ1 - δ2)<=-π) δ1 - δ2 + 2*π else  δ1 - δ2 - 2*π end  ;
+    register(model_cert, :ws, 1, ws; autodiff = true)
+    register(model_cert, :wa, 1, wa; autodiff = true)
+    register(model_cert, :polar, 1, polar; autodiff = true)
+    register(model_cert, :diff_angle, 2, diff_angle; autodiff = true)    
+    g1(t::T, x1::T, x2:: T) where {T<:Real} = sum(λ[i]*subs(symb∇[i],xvar=>[t,x1,x2])[1].α for i in 1:N)
+    g2(t::T, x1::T, x2:: T) where {T<:Real} = sum(λ[i]*subs(symb∇[i],xvar=>[t,x1,x2])[2].α for i in 1:N)
+    g3(t::T, x1::T, x2:: T) where {T<:Real} = sum(λ[i]*subs(symb∇[i],xvar=>[t,x1,x2])[3].α for i in 1:N)
+    register(model_cert, :g1, 3, g1; autodiff = true)
+    register(model_cert, :g2, 3, g2; autodiff = true)
+    register(model_cert, :g3, 3, g3; autodiff = true)
+    @NLobjective(model_cert, Min, 1.0 + g1(time,x[1],x[2]) + g2(time,x[1],x[2])*ws(time)*cos(α)*polar(diff_angle(wa(time),α)) 
+                                                        + g3(time,x[1],x[2])*ws(time)*sin(α)*polar(diff_angle(wa(time),α)))  ;
+    optimize!(model_cert);
+    return objective_value(model_cert),objective_bound(model_cert),[value(time),value(x[1]),value(x[2]),cos(value(α)),sin(value(α))]
+
+end
+
+function certify_hjb_final(sys::toy_boat,λ::AbstractArray,tmax::Float64,xT::AbstractArray,optimizer)
+    model_cert = Model(optimizer);
+    @variable(model_cert, 0<= t <= tmax);
+    @variable(model_cert, sys.xmin[i] <= x[i = 1:2]<=sys.xmax[i]);
+    @NLconstraint(model_cert, (x[1]-xT[1])^2+(x[2]-xT[2])^2 <= TARGET_TOLERANCE^2);
+    vstar(t::T, x1::T, x2:: T) where {T<:Real} = v([t,x1,x2],λ);
+    register(model_cert, :vstar, 3, vstar; autodiff = true)
+    @NLobjective(model_cert, Max, vstar(t,x[1],x[2]));
+    optimize!(model_cert);
+    return objective_value(model_cert),objective_bound(model_cert)
 end
 
 ################################################ Brockett integrator test case  ###############################################################
@@ -266,4 +350,54 @@ end
 
 function is_feasible(sys::gen_brockett_integrator,x::Vector{Float64})
     return true
+end
+
+function certify_hjb_final(sys::gen_brockett_integrator,λ::AbstractArray,tmax::Float64,xT::AbstractArray,optimizer)
+    model_cert = Model(optimizer);
+    @variable(model_cert, 0<= t <= tmax);
+    @variable(model_cert, sys.xmin[i] <= x[i = 1:6]<=sys.xmax[i]);
+    @NLconstraint(model_cert, (x[1]-xT[1])^2+(x[2]-xT[2])^2+(x[3]-xT[3])^2+(x[4]-xT[4])^2+(x[5]-xT[5])^2+(x[6]-xT[6])^2 <= TARGET_TOLERANCE^2);
+    vstar(t::T, x1::T, x2:: T, x3::T,x4::T,x5::T,x6::T) where {T<:Real} = v([t,x1,x2,x3,x4,x5,x6],λ);
+    register(model_cert, :vstar, 6, vstar; autodiff = true)
+    @NLobjective(model_cert, Max, vstar(t,x[1],x[2],x[3],x[4],x[5],x[6]));
+    optimize!(model_cert);
+    return objective_value(model_cert),objective_bound(model_cert)
+end
+
+
+function certify_hjb(sys::gen_brockett_integrator,λ::AbstractArray,tmax::Float64,optimizer)
+    N = length(λ);
+    model_cert = Model(optimizer);
+    @variable(model_cert, 0<= time <= tmax);
+    @variable(model_cert, 0.99*sys.xmin[i]<= x[i = 1:sys.nx]<=0.99*sys.xmax[i]);
+    @variable(model_cert, -1.0<= u[i=1:sys.nu] <= 1.0);
+    @NLconstraint(model_cert, sum(u[i]*u[i] for i in 1:sys.nu)<=1.0);
+    
+    
+    g1(t::T, x1::T, x2:: T,x3:: T,x4:: T,x5::T,x6::T) where {T<:Real} = sum(λ[i]*subs(symb∇[i],xvar=>[t,x1,x2,x3,x4,x5,x6])[1].α for i in 1:N)
+    g2(t::T, x1::T, x2:: T,x3:: T,x4:: T,x5::T,x6::T) where {T<:Real} = sum(λ[i]*subs(symb∇[i],xvar=>[t,x1,x2,x3,x4,x5,x6])[2].α for i in 1:N)
+    g3(t::T, x1::T, x2:: T,x3:: T,x4:: T,x5::T,x6::T) where {T<:Real} = sum(λ[i]*subs(symb∇[i],xvar=>[t,x1,x2,x3,x4,x5,x6])[3].α for i in 1:N)
+    g4(t::T, x1::T, x2:: T,x3:: T,x4:: T,x5::T,x6::T) where {T<:Real} = sum(λ[i]*subs(symb∇[i],xvar=>[t,x1,x2,x3,x4,x5,x6])[4].α for i in 1:N)
+    g5(t::T, x1::T, x2:: T,x3:: T,x4:: T,x5::T,x6::T) where {T<:Real} = sum(λ[i]*subs(symb∇[i],xvar=>[t,x1,x2,x3,x4,x5,x6])[5].α for i in 1:N)
+    g6(t::T, x1::T, x2:: T,x3:: T,x4:: T,x5::T,x6::T) where {T<:Real} = sum(λ[i]*subs(symb∇[i],xvar=>[t,x1,x2,x3,x4,x5,x6])[6].α for i in 1:N)
+    g7(t::T, x1::T, x2:: T,x3:: T,x4:: T,x5::T,x6::T) where {T<:Real} = sum(λ[i]*subs(symb∇[i],xvar=>[t,x1,x2,x3,x4,x5,x6])[7].α for i in 1:N)
+
+
+    register(model_cert, :g1, 7, g1; autodiff = true)
+    register(model_cert, :g2, 7, g2; autodiff = true)
+    register(model_cert, :g3, 7, g3; autodiff = true)
+    register(model_cert, :g4, 7, g4; autodiff = true)
+    register(model_cert, :g5, 7, g5; autodiff = true)
+    register(model_cert, :g6, 7, g6; autodiff = true)
+    register(model_cert, :g7, 7, g7; autodiff = true)
+    @NLobjective(model_cert, Min, 1.0 + g1(time,x[1],x[2],x[3],x[4],x[5],x[6]) + 
+                                        g2(time,x[1],x[2],x[3],x[4],x[5],x[6]) * u[1] +
+                                        g3(time,x[1],x[2],x[3],x[4],x[5],x[6]) * u[2] +
+                                        g4(time,x[1],x[2],x[3],x[4],x[5],x[6]) * u[3] +
+                                        g5(time,x[1],x[2],x[3],x[4],x[5],x[6]) * u[4] +
+                                        g6(time,x[1],x[2],x[3],x[4],x[5],x[6]) * u[5] +  
+                                         g7(time,x[1],x[2],x[3],x[4],x[5],x[6]) *(u[1]/(1+x[4])-x[1]*u[2]-cos(x[1]*x[3])*u[3]+exp(x[2])*u[4]+x[1]*x[2]*x[6]*u[5]));
+   
+    optimize!(model_cert);
+    return objective_value(model_cert),objective_bound(model_cert),[value(time);[value(x[i]) for i in 1:sys.nx];[value(u[i]) for i in 1:sys.nu]]
 end
