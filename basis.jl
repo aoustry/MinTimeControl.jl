@@ -4,11 +4,11 @@ using DynamicPolynomials
 n = 1+nx;
 @polyvar xvar[1:n]
 basis = monomials(xvar, 0:degree)
+N = length(basis)
 symb∇= [(differentiate(p, xvar)) for p in basis]
 
 #Polynomial basis
 ϕ(y::AbstractArray) = [p(xvar=>y) for p in basis];
-N = length(basis)
 #Trigo basis
 #ϕ(y::AbstractArray) = [ prod([cos(y[k]*(p.z[k]//2) + (p.z[k]%2) * pi/2) for k in 1:n]) for p in basis]
 #N = length(basis)

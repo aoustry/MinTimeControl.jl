@@ -26,7 +26,7 @@ system_file_name ="system_definition_toyboat.jl";
 #system_file_name ="system_definition_gen_brockett6.jl";
 include(system_file_name);
 ##################################################################################################################
-degree = 2; #4 works surprisingly well  #7 is good for boats and for the generalized brockett_integrator #9 is better for toyboat
+degree = 3; #4 works surprisingly well  #7 is good for boats and for the generalized brockett_integrator #9 is better for toyboat
 include("basis.jl");
 include("solver.jl");
 include("plots.jl");
