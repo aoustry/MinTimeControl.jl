@@ -1,11 +1,6 @@
 using ForwardDiff
 using DynamicPolynomials
 ################################################ Begin Basis parameterization ###############################################################
-n = 1+nx;
-@polyvar xvar[1:n]
-basis = monomials(xvar, 0:degree)
-N = length(basis)
-symb∇= [(differentiate(p, xvar)) for p in basis]
 
 #Polynomial basis
 ϕ(y::AbstractArray) = [p(xvar=>y) for p in basis];

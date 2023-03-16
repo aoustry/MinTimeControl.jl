@@ -176,11 +176,12 @@ end
 
 function f(sys::toy_boat,t::AbstractFloat,x::AbstractArray,u::AbstractArray)
     @assert abs(norm(u)-1)<1e-6;
-    heading = angle(u[1] + im*u[2]);
-    relative_angle = wind_angle(sys,t,x) - heading;
-    relative_angle = (relative_angle + pi)%(2*pi) - pi;
-    r = wind_speed(sys,t,x)*polar(sys,relative_angle);
-    return r*u;
+    rel_angle = angle(u[1] + im*u[2]);
+    wa = wind_angle(sys,t,x);
+    #relative_angle = wind_angle(sys,t,x) - heading;
+    #relative_angle = (relative_angle + pi)%(2*pi) - pi;
+    r = wind_speed(sys,t,x)*polar(sys,rel_angle);
+    return [r*cos(rel_angle+wa),r*sin(rel_angle+wa)];
 end
 
 #function fα1(sys::toy_boat,t::AbstractFloat,x::AbstractArray,α::AbstractFloat)
@@ -198,9 +199,11 @@ function argmin(sys::toy_boat,t::Float64,x::Vector{Float64},g::Vector{Float64})
 end
 
 
-
 function heuristic_control(sys::toy_boat,t::Float64,x::Vector{Float64},g::Vector{Float64})
-    return g/norm(g)
+    target_angle = angle(g[1] + im*g[2]);
+    wa = wind_angle(sys,t,x);
+    θ = target_angle - wa;
+    return [cos(θ),sin(θ)]
 end
 
 function random_control(sys::toy_boat,t::Float64,x::Vector{Float64})
@@ -236,6 +239,32 @@ function certify_hjb(sys::toy_boat,λ::AbstractArray,tmax::Float64,optimizer)
     @variable(model_cert, 0<= time <= tmax);
     @variable(model_cert, sys.xmin[i] <= x[i = 1:2]<=sys.xmax[i]);
     @variable(model_cert, -pi<= α <= pi);
+    @variable(model_cert, -pi<= θ <= pi);
+    ws(t::T) where {T<:Real} = 2 + t;
+    polar(δ::T) where {T<:Real} =  (abs(sin(sys.polar_coef*δ)));
+    register(model_cert, :ws, 1, ws; autodiff = true)
+    register(model_cert, :polar, 1, polar; autodiff = true)
+    g1(t::T, x1::T, x2:: T) where {T<:Real} = sum(λ[i]*subs(symb∇[i],xvar=>[t,x1,x2])[1].α for i in 1:N)
+    g2(t::T, x1::T, x2:: T) where {T<:Real} = sum(λ[i]*subs(symb∇[i],xvar=>[t,x1,x2])[2].α for i in 1:N)
+    g3(t::T, x1::T, x2:: T) where {T<:Real} = sum(λ[i]*subs(symb∇[i],xvar=>[t,x1,x2])[3].α for i in 1:N)
+    register(model_cert, :g1, 3, g1; autodiff = true)
+    register(model_cert, :g2, 3, g2; autodiff = true)
+    register(model_cert, :g3, 3, g3; autodiff = true)
+    @constraint(model_cert,α+0.5*pi*(1-0.4*time) == θ);
+    @NLobjective(model_cert, Min, 1.0 + g1(time,x[1],x[2]) + g2(time,x[1],x[2])*ws(time)*cos(θ)*polar(α) 
+                                                        + g3(time,x[1],x[2])*ws(time)*sin(θ)*polar(α))  ;
+    optimize!(model_cert);
+    return objective_value(model_cert),objective_bound(model_cert),[value(time),value(x[1]),value(x[2]),cos(value(α)),sin(value(α))]
+
+end
+ 
+
+#=  function certify_hjb(sys::toy_boat,λ::AbstractArray,tmax::Float64,optimizer)
+    N = length(λ);
+    model_cert = Model(optimizer);
+    @variable(model_cert, 0<= time <= tmax);
+    @variable(model_cert, sys.xmin[i] <= x[i = 1:2]<=sys.xmax[i]);
+    @variable(model_cert, -pi<= α <= pi);
     ws(t::T) where {T<:Real} = 2 + t;
     wa(t::T) where {T<:Real} = 0.5*pi*(1-0.4*t);
     polar(δ::T) where {T<:Real} =  (abs(sin(sys.polar_coef*δ)));
@@ -255,7 +284,7 @@ function certify_hjb(sys::toy_boat,λ::AbstractArray,tmax::Float64,optimizer)
     optimize!(model_cert);
     return objective_value(model_cert),objective_bound(model_cert),[value(time),value(x[1]),value(x[2]),cos(value(α)),sin(value(α))]
 
-end
+end =#
 
 function certify_hjb_final(sys::toy_boat,λ::AbstractArray,tmax::Float64,xT::AbstractArray,optimizer)
     model_cert = Model(optimizer);
@@ -267,7 +296,7 @@ function certify_hjb_final(sys::toy_boat,λ::AbstractArray,tmax::Float64,xT::Abs
     @NLobjective(model_cert, Max, vstar(t,x[1],x[2]));
     optimize!(model_cert);
     return objective_value(model_cert),objective_bound(model_cert)
-end
+end 
 
 ################################################ Brockett integrator test case  ###############################################################
 struct brockett_integrator <: system
