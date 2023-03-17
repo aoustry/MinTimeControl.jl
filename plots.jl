@@ -134,8 +134,8 @@ function plot_control_zermelo(sys::system,traj_heur,best_traj)
     plot!(circleShape(0,-1,0.02), seriestype = [:shape,],lw = 0.5,c=:red,linecolor = :black, label = "Starting point", legend = :outertop,aspect_ratio=:equal)
 
     plot!(circleShape(0,0,TARGET_TOLERANCE), seriestype = [:shape,],lw = 0.5,c=:gray,linecolor = :black, label = "Target set K", legend = :outertop, fillalpha = 0.2,aspect_ratio=:equal)
-    plot!([el[2] for el in traj_heur], [el[3] for el in traj_heur],label = "Heuristic trajectory (t=1.261)", legend = :outertop,aspect_ratio=:equal );
-    plot!([el[2] for el in best_traj], [el[3] for el in best_traj],label = "Closed-loop trajectory (t=1.100)", legend = :outertop,xlabel = "x₁",ylabel = "x₂",aspect_ratio=:equal );
+    plot!([el[2] for el in traj_heur], [el[3] for el in traj_heur],label = "Heuristic control (t=1.261)", legend = :outertop,aspect_ratio=:equal );
+    plot!([el[2] for el in best_traj], [el[3] for el in best_traj],label = "Feedback control CLᵥ (t=1.100)", legend = :outertop,xlabel = "x₁",ylabel = "x₂",aspect_ratio=:equal );
     xlims!(-0.8, 0.8)
     png("plots/trajzermelo.png");
 end
@@ -144,8 +144,8 @@ function plot_control_regatta(sys::system,traj_heur,best_traj)
     plot();
     plot!(circleShape(0,-1,0.02), seriestype = [:shape,],lw = 0.5,c=:red,linecolor = :black, label = "Starting point", legend = :outertop,aspect_ratio=:equal)
     plot!(circleShape(0,0,TARGET_TOLERANCE), seriestype = [:shape,],lw = 0.5,c=:gray,linecolor = :black, label = "Target set K", legend = :outertop, fillalpha = 0.2,aspect_ratio=:equal)
-    plot!([el[2] for el in traj_heur], [el[3] for el in traj_heur],label = "Heuristic trajectory (t=1.278)", legend = :outertop,aspect_ratio=:equal );
-    plot!([el[2] for el in best_traj], [el[3] for el in best_traj],label = "Closed-loop trajectory (t=0.913)", legend = :outertop,xlabel = "x₁",ylabel = "x₂",aspect_ratio=:equal );
+    plot!([el[2] for el in traj_heur], [el[3] for el in traj_heur],label = "Heuristic control (t=1.278)", legend = :outertop,aspect_ratio=:equal );
+    plot!([el[2] for el in best_traj], [el[3] for el in best_traj],label = "Feedback control CLᵥ (t=0.913)", legend = :outertop,xlabel = "x₁",ylabel = "x₂",aspect_ratio=:equal );
     xlims!(-0.8, 0.8)
     png("plots/trajregatta.png");
 end
