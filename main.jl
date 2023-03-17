@@ -20,11 +20,10 @@ OBJECTIVE_WITH_INTEGRAL = false;
 simplex = true;
 ########################################### System definition #####################################################
 #system_file_name = "system_definition_zermelo.jl";
-system_file_name ="system_definition_toyboat.jl";
-#system_file_name ="system_definition_gen_brockett6.jl";
+#system_file_name ="system_definition_toyboat.jl";
+system_file_name ="system_definition_gen_brockett6.jl";
 include(system_file_name);
 ##################################################################################################################
-#degree = 3; #4 works surprisingly well  #7 is good for boats and for the generalized brockett_integrator #9 is better for toyboat
 include("basis.jl");
 include("solver.jl");
 include("plots.jl");
@@ -55,21 +54,21 @@ function main(degree,certification)
     logs["time_heur"] = time_heur
     logs["ub"] = tmax
     logs["lb"] = lb
-
     #Saving result
     array = split(system_file_name,"_")
     name = array[length(array)]
     save("logs/"*name*"_"*string(degree)*"_"*string(certification)*".jld", "data", logs)
-
-    #plot_∇v_terminal(sys,λ,xT,tmax)
-    #plot_v_terminal(sys,λ,xT,tmax)
-    #plot_traj(best_traj,[2,3])
-    #plot_v_traj(sys,λ,best_traj)
+    #plot_control(sys,traj_heur,best_traj)
+    #plot_water_flow(sys,traj_heur,best_traj)
+   # plot_control_regatta(sys,traj_heur,best_traj)
 end
 
-certif = true
+certif = false
 main(2,certif);
 
-for i in 2:8
-    main(i,certif);
-end
+#for i in 2:8
+#    main(i,certif);
+#end
+ 
+ 
+

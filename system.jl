@@ -425,7 +425,7 @@ function certify_hjb(sys::gen_brockett_integrator,λ::AbstractArray,tmax::Float6
                                         g4(time,x[1],x[2],x[3],x[4],x[5],x[6]) * u[3] +
                                         g5(time,x[1],x[2],x[3],x[4],x[5],x[6]) * u[4] +
                                         g6(time,x[1],x[2],x[3],x[4],x[5],x[6]) * u[5] +  
-                                         g7(time,x[1],x[2],x[3],x[4],x[5],x[6]) *(u[1]/(1+x[4])-x[1]*u[2]-cos(x[1]*x[3])*u[3]+exp(x[2])*u[4]+x[1]*x[2]*x[6]*u[5]));
+                                         g7(time,x[1],x[2],x[3],x[4],x[5],x[6]) *(2*u[1]/(2+x[4])-x[1]*u[2]-cos(x[1]*x[3])*u[3]+exp(x[2])*u[4]+x[1]*x[2]*x[6]*u[5]));
    
     optimize!(model_cert);
     return objective_value(model_cert),objective_bound(model_cert),[value(time);[value(x[i]) for i in 1:sys.nx];[value(u[i]) for i in 1:sys.nu]]
