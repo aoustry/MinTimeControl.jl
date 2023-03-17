@@ -57,11 +57,11 @@ function main(degree,certification)
     #Saving result
     array = split(system_file_name,"_")
     name = array[length(array)]
-    #save("logs/"*name*"_"*string(degree)*"_"*string(certification)*".jld", "data", logs)
+    save("logs/"*name*"_"*string(degree)*"_"*string(certification)*".jld", "data", logs)
     #plot_control_zermelo(sys,traj_heur,best_traj)
     #plot_control(sys,traj_heur,best_traj)
     #plot_water_flow(sys,traj_heur,best_traj)
-    plot_control_regatta(sys,traj_heur,best_traj)
+    #plot_control_regatta(sys,traj_heur,best_traj)
 end
 
 certif = false
