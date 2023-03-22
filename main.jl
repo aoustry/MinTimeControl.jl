@@ -19,8 +19,8 @@ STEP_ADD_TRAJ = 1 ; #5
 OBJECTIVE_WITH_INTEGRAL = false; 
 simplex = true;
 ########################################### System definition #####################################################
-#system_file_name = "system_definition_zermelo.jl";
-system_file_name ="system_definition_toyboat.jl";
+system_file_name = "system_definition_zermelo.jl";
+#system_file_name ="system_definition_toyboat.jl";
 #system_file_name ="system_definition_gen_brockett6.jl";
 include(system_file_name);
 ##################################################################################################################
@@ -64,12 +64,12 @@ function main(degree,certification)
     #plot_control_regatta(sys,traj_heur,best_traj)
 end
 
-certif = false
-main(6,certif);
+certif = true
+#main(6,certif);
 
-#for i in 2:8
-#    main(i,certif);
-#end
+for i in 2:8
+    main(i,certif);
+end
  
  
 
