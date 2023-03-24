@@ -7,7 +7,7 @@ RADIUS_BALL = TARGET_TOLERANCE = 5*1e-2; #1e-2
 include("system.jl")
 N_TERMINAL = 1000
 N_SELECTED_CONSTRAINTS = 100 ;
-MAX_NUMBER_OF_ATTEMPTS = 500000;
+MAX_NUMBER_OF_ATTEMPTS = 50000;
 N_SELECTED_CONSTRAINTS_FINAL = 100 ;
 MAX_NUMBER_OF_ATTEMPTS_FINAL = 10000;
 N_RANDOM_INIT = 1000
@@ -65,11 +65,11 @@ function main(degree,certification)
 end
 
 certif = true
-#main(6,certif);
+main(6,true);
 
-for i in 2:8
-    main(i,certif);
-end
+#for i in 2:8
+#    main(i,certif);
+#end
  
  
 

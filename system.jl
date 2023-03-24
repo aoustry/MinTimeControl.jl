@@ -117,11 +117,11 @@ function certify_hjb(sys::zermelo_boat,λ::AbstractArray,tmax::Float64,optimizer
     model_cert = Model(optimizer);
     @variable(model_cert, 0<= t <= tmax);
     @variable(model_cert, sys.xmin[i] <= x[i = 1:2]<=sys.xmax[i]);
-    @variable(model_cert, -1.0<= u[i=1:2] <= 1.0);
-    @NLconstraint(model_cert, u[1]^2 + u[2]^2==1.0);
+    @variable(model_cert, -π<= u <= π);
+    #@NLconstraint(model_cert, u[1]^2 + u[2]^2==1.0);
     @NLexpression(model_cert, ft, 1.0);
-    @NLexpression(model_cert, fx1, u[1] + sys.flow_strength*sin(pi*x[2])*(1+sys.time_increasing_flow*t));
-    @NLexpression(model_cert, fx2, u[2]);
+    @NLexpression(model_cert, fx1, cos(u) + sys.flow_strength*sin(pi*x[2])*(1+sys.time_increasing_flow*t));
+    @NLexpression(model_cert, fx2, sin(u));
     
     g1(t::T, x1::T, x2:: T) where {T<:Real} = sum(λ[i]*subs(symb∇[i],xvar=>[t,x1,x2])[1].α for i in 1:N)
     g2(t::T, x1::T, x2:: T) where {T<:Real} = sum(λ[i]*subs(symb∇[i],xvar=>[t,x1,x2])[2].α for i in 1:N)
@@ -133,7 +133,7 @@ function certify_hjb(sys::zermelo_boat,λ::AbstractArray,tmax::Float64,optimizer
 
     @NLobjective(model_cert, Min, 1.0 + g1(t,x[1],x[2])*ft + g2(t,x[1],x[2])*fx1 + g3(t,x[1],x[2])*fx2);
     optimize!(model_cert);
-    return objective_value(model_cert),objective_bound(model_cert),[value(t),value(x[1]),value(x[2]),value(u[1]),value(u[2])]
+    return objective_value(model_cert),objective_bound(model_cert),[value(t),value(x[1]),value(x[2]),value(u)]
 end
 
 function certify_hjb_final(sys::zermelo_boat,λ::AbstractArray,tmax::Float64,xT::AbstractArray,optimizer)

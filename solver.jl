@@ -235,9 +235,11 @@ function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ,simplex,certification)
     max_violation_1,max_violation_2,certification_time = -Inf,-Inf,-Inf 
     if certification
         certification_time = @elapsed begin
-        solver = optimizer_with_attributes(EAGO.Optimizer,"absolute_tolerance"=>1e-3,"time_limit"=>3.6*1e3);
+        solver = optimizer_with_attributes(EAGO.Optimizer,"absolute_tolerance"=>1e-3,"time_limit"=>1e4);
+        #solver = optimizer_with_attributes(SCIP.Optimizer,"limits/time"=>3.6*1e3);
         obj,max_violation_1, _ = certify_hjb(sys,λ,tmax,solver);
-        solver = optimizer_with_attributes(EAGO.Optimizer,"absolute_tolerance"=>1e-3,"time_limit"=>3.6*1e3);
+        solver = optimizer_with_attributes(EAGO.Optimizer,"absolute_tolerance"=>1e-3,"time_limit"=>1e4);
+        #solver = optimizer_with_attributes(SCIP.Optimizer,"limits/time"=>3.6*1e3);
         obj,max_violation_2 =certify_hjb_final(sys,λ,tmax,xT,solver);        
         feas_penalty = tmax*max_violation_1 - max_violation_2;
         end
