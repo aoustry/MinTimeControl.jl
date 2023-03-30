@@ -178,7 +178,7 @@ function add_selected_cuts(model, θ, sys::system,tmax::Float64,P::Int64,constra
  end
     
 ##################################################### Main function ###########################################################
-function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ,simplex,certification)
+function dual_solving(sys,degree,x0,xT,traj_heur,tmax,ϵ,μ,simplex,certification)
     time = @elapsed begin
     best_traj = traj_heur
     model = Model(Gurobi.Optimizer);
@@ -224,23 +224,24 @@ function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ,simplex,certification)
         end
         seq_control,seq_ub,seq_lb,seq_bounds = [seq_control;tmax],[seq_ub;curr_obj],[seq_lb;curr_obj+2*(1+tmax)*max_violation],[seq_bounds;v(vcat(0.0,x0),λ)+2*(1+tmax)*max_violation]
     end
-    optimize!(model);
-    λ = [value(θ[i]) for i in 1:N];
+    #optimize!(model);
+    #λ = [value(θ[i]) for i in 1:N];
     success,traj,tmax_new = vmin_trajectory(sys,x0,xT,tmax,λ)
     if success && (tmax_new < tmax)
         tmax = tmax_new
         best_traj = traj
     end
+    end
     feas_penalty = 2*(1+tmax)*max_violation;
     max_violation_1,max_violation_2,certification_time = -Inf,-Inf,-Inf 
     if certification
         certification_time = @elapsed begin
-        solver = optimizer_with_attributes(EAGO.Optimizer,"absolute_tolerance"=>1e-3,"time_limit"=>1e4);
-        #solver = optimizer_with_attributes(SCIP.Optimizer,"limits/time"=>3.6*1e3);
-        obj,max_violation_1, _ = certify_hjb(sys,λ,tmax,solver);
-        solver = optimizer_with_attributes(EAGO.Optimizer,"absolute_tolerance"=>1e-3,"time_limit"=>1e4);
-        #solver = optimizer_with_attributes(SCIP.Optimizer,"limits/time"=>3.6*1e3);
-        obj,max_violation_2 =certify_hjb_final(sys,λ,tmax,xT,solver);        
+        #solver = optimizer_with_attributes(EAGO.Optimizer,"absolute_tolerance"=>1e-2,"time_limit"=>1e4);
+        solver = optimizer_with_attributes(SCIP.Optimizer,"limits/time"=>1e4);
+        obj,max_violation_1, _ = certify_hjb_scip(sys,degree,λ,tmax,solver);
+        #solver = optimizer_with_attributes(EAGO.Optimizer,"absolute_tolerance"=>1e-3,"time_limit"=>1e4);
+        solver = optimizer_with_attributes(SCIP.Optimizer,"limits/time"=>1e4);
+        obj,max_violation_2 =certify_hjb_final_scip(sys,degree,λ,tmax,xT,solver);        
         feas_penalty = tmax*max_violation_1 - max_violation_2;
         end
     end
@@ -250,7 +251,7 @@ function dual_solving(sys,x0,xT,traj_heur,tmax,ϵ,μ,simplex,certification)
     println("A-LB objective_value SIP_ρ = ",curr_obj+feas_penalty)
     println("A-LB objective_value SIP = ",v(vcat(0.0,x0),λ)+feas_penalty)
     lb = v(vcat(0.0,x0),λ)+feas_penalty
-    end
+    
     logs = Dict("iter"=>iter,"array_time_control"=>[seq_control;tmax],"array_ub_siprho"=>[seq_ub;curr_obj],"array_lb_siprho"=>[seq_lb;curr_obj+2*(1+tmax)*max_violation],"array_lb"=>[seq_bounds;v(vcat(0.0,x0),λ)+2*(1+tmax)*max_violation])
     logs["time"] = time
     if certification

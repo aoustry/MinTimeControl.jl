@@ -136,14 +136,82 @@ function certify_hjb(sys::zermelo_boat,λ::AbstractArray,tmax::Float64,optimizer
     return objective_value(model_cert),objective_bound(model_cert),[value(t),value(x[1]),value(x[2]),value(u)]
 end
 
+function certify_hjb_scip(sys::zermelo_boat,degree::Integer,λ::AbstractArray,tmax::Float64,optimizer)
+    N = length(λ);
+    model_cert = Model(optimizer);
+    @variable(model_cert, 0<= t[k=0:degree] <= tmax^k);
+    @variable(model_cert, -(k%2) <= x[i = 1:2,k = 0:degree]<= 1.0);
+    @variable(model_cert, -π<= u <= π);
+    @variable(model_cert, obj);
+    @constraint(model_cert, t[0]==1.0);
+    @constraint(model_cert, x[1,0]==1.0);
+    @constraint(model_cert, x[2,0]==1.0);
+    @constraint(model_cert,x[2,1]<=0);
+    for k in 1:degree
+        @NLconstraint(model_cert, x[1,k] == x[1,1] * x[1,k-1]);
+        @NLconstraint(model_cert, x[2,k] == x[2,1] * x[2,k-1]);
+        @NLconstraint(model_cert, t[k] == t[1] * t[k-1]);
+    end
+
+    #= for k in 1:degree
+        if k<=1 println("ok")
+        elseif k==2 @NLconstraint(model_cert, x[1,k] == x[1,1] * x[1,1]); @NLconstraint(model_cert, x[2,k] == x[2,1] * x[2,1]); @NLconstraint(model_cert, t[k] == t[1] * t[1]);
+        elseif k==3 @NLconstraint(model_cert, x[1,k] == x[1,1] * x[1,1]* x[1,1]); @NLconstraint(model_cert, x[2,k] == x[2,1] * x[2,1]* x[2,1]); @NLconstraint(model_cert, t[k] == t[1] * t[1]* t[1]);
+        elseif k==4 @NLconstraint(model_cert, x[1,k] == x[1,1] * x[1,1]* x[1,1]* x[1,1]); @NLconstraint(model_cert, x[2,k] == x[2,1] * x[2,1]* x[2,1]* x[2,1]); @NLconstraint(model_cert, t[k] == t[1] * t[1]* t[1]* t[1]);
+        else @assert(false)
+        end
+    end =#
+
+    @NLexpression(model_cert,g1,sum(λ[i]*el[1]*(t[el[1]-1])* (x[1,el[2]])* (x[2,el[3]]) for (i,el) in enumerate(basis.Z) if el[1]>0))
+    @NLexpression(model_cert,g2,sum(λ[i]*el[2]*(t[el[1]])* (x[1,el[2]-1])* (x[2,el[3]]) for (i,el) in enumerate(basis.Z) if el[2]>0));
+    @NLexpression(model_cert,g3,sum(λ[i]*el[3]*(t[el[1]])* (x[1,el[2]])* (x[2,el[3]-1]) for (i,el) in enumerate(basis.Z) if el[3]>0));
+    
+    
+     @NLconstraint(model_cert, 1.0 + g1
+                                    + g2*(cos(u) + sys.flow_strength*sin(pi*x[2,1])*(1+sys.time_increasing_flow*t[1])) 
+                                    + g3*sin(u) <= obj);
+    @objective(model_cert, Min, obj  );
+    optimize!(model_cert);
+    for el in (primal_feasibility_report(model_cert))
+        println(el);
+    end
+    println(objective_value(model_cert));
+    return objective_value(model_cert),objective_bound(model_cert),[value(t[1]),value(x[1,1]),value(x[2,1]),value(u)]
+end
+
 function certify_hjb_final(sys::zermelo_boat,λ::AbstractArray,tmax::Float64,xT::AbstractArray,optimizer)
     model_cert = Model(optimizer);
     @variable(model_cert, 0<= t <= tmax);
     @variable(model_cert, sys.xmin[i] <= x[i = 1:2]<=sys.xmax[i]);
+    @variable(model_cert, obj)
     @NLconstraint(model_cert, (x[1]-xT[1])^2+(x[2]-xT[2])^2 <= TARGET_TOLERANCE^2);
-    vstar(t::T, x1::T, x2:: T) where {T<:Real} = v([t,x1,x2],λ);
-    register(model_cert, :vstar, 3, vstar; autodiff = true)
-    @NLobjective(model_cert, Max, vstar(t,x[1],x[2]));
+    #vstar(t::T, x1::T, x2:: T) where {T<:Real} = v([t,x1,x2],λ);
+    #register(model_cert, :vstar, 3, vstar; autodiff = true)
+    @NLconstraint(model_cert,obj<=sum(λ[i]*(if el[1]>0 t^(el[1]) else 1.0 end)*
+    (if el[2] > 0 x[1]^(el[2]) else 1.0 end)*
+    (if el[3] > 0 x[2]^(el[3]) else 1.0 end ) for (i,el) in enumerate(basis.Z)));
+    @objective(model_cert, Max, obj);
+    optimize!(model_cert);
+    return objective_value(model_cert),objective_bound(model_cert)
+end
+
+function certify_hjb_final_scip(sys::zermelo_boat,degree::Integer,λ::AbstractArray,tmax::Float64,xT::AbstractArray,optimizer)
+    model_cert = Model(optimizer);
+    @variable(model_cert, 0<= t[k=0:degree] <= tmax^k);
+    @variable(model_cert, -(k%2) <= x[i = 1:2,k = 0:degree]<= 1.0);
+    @variable(model_cert, obj);
+    @constraint(model_cert, t[0]==1.0);
+    @constraint(model_cert, x[1,0]==1.0);
+    @constraint(model_cert, x[2,0]==1.0);
+    @constraint(model_cert,x[2,1]<=0);
+    for k in 1:degree
+        @NLconstraint(model_cert, x[1,k] == x[1,1] * x[1,k-1]);
+        @NLconstraint(model_cert, x[2,k] == x[2,1] * x[2,k-1]);
+        @NLconstraint(model_cert, t[k] == t[1] * t[k-1]);
+    end
+    @NLconstraint(model_cert, (x[1,1]-xT[1])^2+(x[2,1]-xT[2])^2 <= TARGET_TOLERANCE^2);
+    @NLconstraint(model_cert,obj<=sum(λ[i]*(t[el[1]])* (x[1,el[2]])* (x[2,el[3]]) for (i,el) in enumerate(basis.Z)));
+    @objective(model_cert, Max, obj);
     optimize!(model_cert);
     return objective_value(model_cert),objective_bound(model_cert)
 end
@@ -207,7 +275,7 @@ function heuristic_control(sys::toy_boat,t::Float64,x::Vector{Float64},g::Vector
 end
 
 function random_control(sys::toy_boat,t::Float64,x::Vector{Float64})
-    angle = Random.rand() * 2* pi;
+    angle = Random.rand() * 2* pi - π;
     return [cos(angle),sin(angle)]
 end
 
@@ -257,6 +325,31 @@ function certify_hjb(sys::toy_boat,λ::AbstractArray,tmax::Float64,optimizer)
     return objective_value(model_cert),objective_bound(model_cert),[value(time),value(x[1]),value(x[2]),cos(value(α)),sin(value(α))]
 
 end
+
+function certify_hjb_scip(sys::toy_boat,degree::Integer,λ::AbstractArray,tmax::Float64,optimizer)
+    model_cert = Model(optimizer);
+    @variable(model_cert, 0<= t[k=0:degree] <= tmax^k);
+    @variable(model_cert, -(k%2) <= x[i = 1:2,k = 0:degree]<= 1.0);
+    @variable(model_cert, -pi<= α <= pi);
+    @variable(model_cert, obj);
+    @constraint(model_cert, t[0]==1.0);
+    @constraint(model_cert, x[1,0]==1.0);
+    @constraint(model_cert, x[2,0]==1.0);
+    for k in 1:degree
+        @NLconstraint(model_cert, x[1,k] == x[1,1] * x[1,k-1]);
+        @NLconstraint(model_cert, x[2,k] == x[2,1] * x[2,k-1]);
+        @NLconstraint(model_cert, t[k] == t[1] * t[k-1]);
+    end
+    @NLexpression(model_cert,g1,sum(λ[i]*el[1]*(t[el[1]-1])* (x[1,el[2]])* (x[2,el[3]]) for (i,el) in enumerate(basis.Z) if el[1]>0))
+    @NLexpression(model_cert,g2,sum(λ[i]*el[2]*(t[el[1]])* (x[1,el[2]-1])* (x[2,el[3]]) for (i,el) in enumerate(basis.Z) if el[2]>0));
+    @NLexpression(model_cert,g3,sum(λ[i]*el[3]*(t[el[1]])* (x[1,el[2]])* (x[2,el[3]-1]) for (i,el) in enumerate(basis.Z) if el[3]>0));
+    @NLconstraint(model_cert, 1.0 + g1 + g2*(2+t[1])*cos(α+0.5*pi*(1-0.4*t[1]))*(abs(sin(sys.polar_coef*α))) 
+                                       + g3*(2+t[1])*sin(α+0.5*pi*(1-0.4*t[1]))*(abs(sin(sys.polar_coef*α))) <= obj)
+    @objective(model_cert, Min, obj)  ;
+    optimize!(model_cert);
+    return objective_value(model_cert),objective_bound(model_cert),[value(t[1]),value(x[1,1]),value(x[2,1]),cos(value(α)),sin(value(α))]
+
+end
  
 
 #=  function certify_hjb(sys::toy_boat,λ::AbstractArray,tmax::Float64,optimizer)
@@ -297,6 +390,27 @@ function certify_hjb_final(sys::toy_boat,λ::AbstractArray,tmax::Float64,xT::Abs
     optimize!(model_cert);
     return objective_value(model_cert),objective_bound(model_cert)
 end 
+
+function certify_hjb_final_scip(sys::toy_boat,degree::Integer,λ::AbstractArray,tmax::Float64,xT::AbstractArray,optimizer)
+    model_cert = Model(optimizer);
+    @variable(model_cert, 0<= t[k=0:degree] <= tmax^k);
+    @variable(model_cert, -(k%2) <= x[i = 1:2,k = 0:degree]<= 1.0);
+    @variable(model_cert, obj);
+    @constraint(model_cert, t[0]==1.0);
+    @constraint(model_cert, x[1,0]==1.0);
+    @constraint(model_cert, x[2,0]==1.0);
+    @constraint(model_cert,x[2,1]<=0);
+    for k in 1:degree
+        @NLconstraint(model_cert, x[1,k] == x[1,1] * x[1,k-1]);
+        @NLconstraint(model_cert, x[2,k] == x[2,1] * x[2,k-1]);
+        @NLconstraint(model_cert, t[k] == t[1] * t[k-1]);
+    end
+    @NLconstraint(model_cert, (x[1,1]-xT[1])^2+(x[2,1]-xT[2])^2 <= TARGET_TOLERANCE^2);
+    @NLconstraint(model_cert,obj<=sum(λ[i]*(t[el[1]])* (x[1,el[2]])* (x[2,el[3]]) for (i,el) in enumerate(basis.Z)));
+    @objective(model_cert, Max, obj);
+    optimize!(model_cert);
+    return objective_value(model_cert),objective_bound(model_cert)
+end
 
 ################################################ Brockett integrator test case  ###############################################################
 struct brockett_integrator <: system
@@ -398,7 +512,7 @@ function certify_hjb(sys::gen_brockett_integrator,λ::AbstractArray,tmax::Float6
     N = length(λ);
     model_cert = Model(optimizer);
     @variable(model_cert, 0<= time <= tmax);
-    @variable(model_cert, 0.99*sys.xmin[i]<= x[i = 1:sys.nx]<=0.99*sys.xmax[i]);
+    @variable(model_cert, sys.xmin[i]<= x[i = 1:sys.nx]<=sys.xmax[i]);
     @variable(model_cert, -1.0<= u[i=1:sys.nu] <= 1.0);
     @NLconstraint(model_cert, sum(u[i]*u[i] for i in 1:sys.nu)<=1.0);
     
@@ -429,4 +543,69 @@ function certify_hjb(sys::gen_brockett_integrator,λ::AbstractArray,tmax::Float6
    
     optimize!(model_cert);
     return objective_value(model_cert),objective_bound(model_cert),[value(time);[value(x[i]) for i in 1:sys.nx];[value(u[i]) for i in 1:sys.nu]]
+end
+
+function certify_hjb_scip(sys::gen_brockett_integrator,degree::Integer,λ::AbstractArray,tmax::Float64,optimizer)
+    @assert(sys.nx==6)
+    N = length(λ);
+    model_cert = Model(optimizer);
+    @variable(model_cert, 0<= t[k=0:degree] <= tmax^k);
+    @variable(model_cert, -(k%2)<= x[i = 1:sys.nx,k=0:degree]<=1.0);
+    @variable(model_cert, -1.0<= u[i=1:sys.nu] <= 1.0);
+    
+    @variable(model_cert, obj);
+    @constraint(model_cert, t[0]==1.0);
+    for j in 1:sys.nx
+        @constraint(model_cert, x[j,0]==1.0);
+    end
+    for k in 1:degree
+        for j in 1:sys.nx
+        @NLconstraint(model_cert, x[j,k] == x[j,1] * x[j,k-1]);
+        end
+        @NLconstraint(model_cert, t[k] == t[1] * t[k-1]);
+    end
+    @NLconstraint(model_cert, sum(u[i]*u[i] for i in 1:sys.nu)<=1.0);
+    @NLexpression(model_cert,g1,sum(λ[i]*el[1]*(t[el[1]-1])* (x[1,el[2]])* (x[2,el[3]])* (x[3,el[4]])* (x[4,el[5]])* (x[5,el[6]])* (x[6,el[7]]) for (i,el) in enumerate(basis.Z) if el[1]>0))
+    @NLexpression(model_cert,g2,sum(λ[i]*el[2]*(t[el[1]])* (x[1,el[2]-1])* (x[2,el[3]])* (x[3,el[4]])* (x[4,el[5]])* (x[5,el[6]])* (x[6,el[7]]) for (i,el) in enumerate(basis.Z) if el[2]>0));
+    @NLexpression(model_cert,g3,sum(λ[i]*el[3]*(t[el[1]])* (x[1,el[2]])* (x[2,el[3]-1])* (x[3,el[4]])* (x[4,el[5]])* (x[5,el[6]])* (x[6,el[7]]) for (i,el) in enumerate(basis.Z) if el[3]>0));
+    @NLexpression(model_cert,g4,sum(λ[i]*el[4]*(t[el[1]])* (x[1,el[2]])* (x[2,el[3]])* (x[3,el[4]-1])* (x[4,el[5]])* (x[5,el[6]])* (x[6,el[7]]) for (i,el) in enumerate(basis.Z) if el[4]>0));
+    @NLexpression(model_cert,g5,sum(λ[i]*el[5]*(t[el[1]])* (x[1,el[2]])* (x[2,el[3]])* (x[3,el[4]])* (x[4,el[5]-1])* (x[5,el[6]])* (x[6,el[7]]) for (i,el) in enumerate(basis.Z) if el[5]>0));
+    @NLexpression(model_cert,g6,sum(λ[i]*el[6]*(t[el[1]])* (x[1,el[2]])* (x[2,el[3]])* (x[3,el[4]])* (x[4,el[5]])* (x[5,el[6]-1])* (x[6,el[7]]) for (i,el) in enumerate(basis.Z) if el[6]>0));
+    @NLexpression(model_cert,g7,sum(λ[i]*el[7]*(t[el[1]])* (x[1,el[2]])* (x[2,el[3]])* (x[3,el[4]])* (x[4,el[5]])* (x[5,el[6]])* (x[6,el[7]-1]) for (i,el) in enumerate(basis.Z) if el[7]>0));
+    
+    
+    @NLconstraint(model_cert,1.0 + g1 + 
+                    g2 * u[1] +
+                    g3 * u[2] +
+                    g4 * u[3] +
+                    g5 * u[4] +
+                    g6 * u[5] +  
+                    g7 *((2*u[1]/(2+x[4,1]))-x[1,1]*u[2]-cos(x[1,1]*x[3,1])*u[3]+exp(x[2,1])*u[4]+x[1,1]*x[2,1]*x[6,1]*u[5])<=obj);
+    @objective(model_cert, Min, obj)
+    optimize!(model_cert);
+    return objective_value(model_cert),objective_bound(model_cert),[value(t[1]);[value(x[i,1]) for i in 1:sys.nx];[value(u[i]) for i in 1:sys.nu]]
+end
+
+
+function certify_hjb_final_scip(sys::gen_brockett_integrator,degree::Integer,λ::AbstractArray,tmax::Float64,xT::AbstractArray,optimizer)
+    @assert(sys.nx==6)
+    model_cert = Model(optimizer);
+    @variable(model_cert, 0<= t[k=0:degree] <= tmax^k);
+    @variable(model_cert, -(k%2)<= x[i = 1:sys.nx,k=0:degree]<=1.0);    
+    @variable(model_cert, obj);
+    @constraint(model_cert, t[0]==1.0);
+    for j in 1:sys.nx
+        @constraint(model_cert, x[j,0]==1.0);
+    end
+    for k in 1:degree
+        for j in 1:sys.nx
+        @NLconstraint(model_cert, x[j,k] == x[j,1] * x[j,k-1]);
+        end
+        @NLconstraint(model_cert, t[k] == t[1] * t[k-1]);
+    end
+    @NLconstraint(model_cert, sum((x[j,1]-xT[j])^2 for j in 1:sys.nx) <= TARGET_TOLERANCE^2);
+    @NLconstraint(model_cert,obj<= sum(λ[i]*(t[el[1]])* (x[1,el[2]])* (x[2,el[3]])* (x[3,el[4]])* (x[4,el[5]])* (x[5,el[6]])* (x[6,el[7]]) for (i,el) in enumerate(basis.Z)));    
+    @objective(model_cert, Max,obj);
+    optimize!(model_cert);
+    return objective_value(model_cert),objective_bound(model_cert)
 end
