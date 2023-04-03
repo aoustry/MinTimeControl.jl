@@ -5,7 +5,7 @@ using PrettyTables
 
 function table(name,certification)
     data = [0 0 0 0 0 0 0]
-    for deg in 2:3
+    for deg in 2:4
         dictionnary = load("logs/"*name*"_"*string(deg)*"_"*string(certification)*"withScip.jld")["data"]
         data = [data; Integer(deg) maximum(dictionnary["array_lb"]) dictionnary["lb"] dictionnary["ub"] dictionnary["time"] dictionnary["iter"] dictionnary["certif_time"]]
     end
